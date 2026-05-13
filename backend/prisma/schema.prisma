@@ -1,0 +1,76 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre    String     @db.VarChar(100)
+  email     String     @unique @db.VarChar(150)
+  password  String     @db.VarChar(255)
+  createdAt DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  deudores  Deudor[]
+  prestamos Prestamo[]
+
+  @@map("usuarios")
+}
+
+model Deudor {
+  id        String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nombre    String     @db.VarChar(100)
+  cedula    String     @unique @db.VarChar(20)
+  telefono  String?    @db.VarChar(20)
+  direccion String?    @db.VarChar(255)
+  usuarioId String     @map("usuario_id") @db.Uuid
+  createdAt DateTime?  @default(now()) @map("created_at") @db.Timestamp(6)
+  usuario   Usuario    @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  prestamos Prestamo[]
+
+  @@map("deudores")
+}
+
+model Prestamo {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  montoCapital  Decimal     @map("monto_capital") @db.Decimal(12, 2)
+  tasaInteres   Decimal     @map("tasa_interes") @db.Decimal(5, 2)
+  fechaInicio   DateTime    @map("fecha_inicio") @db.Date
+  fechaFinPlazo DateTime?   @map("fecha_fin_plazo") @db.Date
+  estado        String?     @default("activo") @db.VarChar(20)
+  deudorId      String      @map("deudor_id") @db.Uuid
+  usuarioId     String      @map("usuario_id") @db.Uuid
+  createdAt     DateTime?   @default(now()) @map("created_at") @db.Timestamp(6)
+  cuotas        Cuota[]
+  documentos    Documento[]
+  deudor        Deudor      @relation(fields: [deudorId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  usuario       Usuario     @relation(fields: [usuarioId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("prestamos")
+}
+
+model Cuota {
+  id               String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  montoInteres     Decimal   @map("monto_interes") @db.Decimal(12, 2)
+  fechaVencimiento DateTime  @map("fecha_vencimiento") @db.Date
+  pagado           Boolean?  @default(false)
+  fechaPago        DateTime? @map("fecha_pago") @db.Date
+  prestamoId       String    @map("prestamo_id") @db.Uuid
+  createdAt        DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  prestamo         Prestamo  @relation(fields: [prestamoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("cuotas")
+}
+
+model Documento {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  urlArchivo String    @map("url_archivo")
+  tipo       String?   @db.VarChar(10)
+  prestamoId String    @map("prestamo_id") @db.Uuid
+  createdAt  DateTime? @default(now()) @map("created_at") @db.Timestamp(6)
+  prestamo   Prestamo  @relation(fields: [prestamoId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("documentos")
+}
