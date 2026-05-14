@@ -14,6 +14,7 @@ const Login = () => {
       const res = await api.post('/auth/login', { email, password })
       localStorage.setItem('token', res.data.token)
       localStorage.setItem('nombre', res.data.nombre)
+      localStorage.setItem('usuarioId', res.data.id)
       navigate('/dashboard')
     } catch {
       setError('Credenciales inválidas')
