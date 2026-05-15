@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createDebtor, getDebtorByCedula, updateDebtor, deleteDebtor, getAllDebtors } from '../controllers/debtorController'
+import { createDebtor, getDebtorByCedula, updateDebtor, deleteDebtor, getAllDebtors} from '../controllers/debtorController'
 
 const router = Router()
 
@@ -8,5 +8,5 @@ router.post('/deudores', createDebtor)
 router.get('/deudores/:cedula', getDebtorByCedula)
 router.put('/deudores/:id', updateDebtor)
 router.delete('/deudores/:id', deleteDebtor)
-router.get('/deudores/usuario/:usuarioId', getAllDebtors)
+router.get('/alldeudores/:usuarioId', getAllDebtors)
 export default router

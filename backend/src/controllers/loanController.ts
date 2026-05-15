@@ -4,10 +4,10 @@ import prisma from "../lib/prisma"
 // CREAR PRESTAMO
 export const createLoan = async (req: Request, res: Response) => {
     try{
-        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo,deudorId, usuarioId} = req.body
+        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado, deudorId, usuarioId} = req.body
 
         const newLoan = await prisma.prestamo.create({
-        data: {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo,deudorId, usuarioId}
+        data: {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo,estado, deudorId, usuarioId}
     })
     res.status(201).json({message: "Deuda ingresada", id: newLoan.id})
     } catch(error) {
@@ -45,10 +45,10 @@ export const updateLoan = async (req: Request, res: Response) => {
     try{
         const {id} = req.params
         const idStrg = String(id)
-        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo} = req.body
+        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado} = req.body
         const updatedLoan = await prisma.prestamo.update({
             where: { id: idStrg },
-            data: { montoCapital, tasaInteres, fechaInicio, fechaFinPlazo }
+            data: { montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado }
         })
         res.json(updatedLoan)
     } catch(error) {
@@ -88,5 +88,25 @@ export const getAllLoans = async (req: Request, res: Response) => {
     res.json(deudores)
   } catch(error) {
     res.status(404).json({ message: "No se encontraron préstamos" })
+  }
+}
+
+//OBTENER PRESTAMOS ACTIVOS
+export const getActiveLoans = async (req: Request, res: Response) => {
+    try {
+    const { usuarioId } = req.params
+    const usuarioIdStrg = String(usuarioId)
+
+    const prestamos = await prisma.prestamo.findMany({
+      where: { 
+        usuarioId: usuarioIdStrg, 
+        estado: "activo"
+      },include: {
+        deudor: true,
+      }
+    })
+    res.json(prestamos)
+  } catch(error) {
+    res.status(404).json({ message: "No se encontraron prestamos activos." })
   }
 }

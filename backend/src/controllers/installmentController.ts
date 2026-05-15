@@ -87,3 +87,51 @@ export const getInstallmentsNotPaid = async (req: Request, res: Response) => {
         res.status(500).json({ error: String(error) })
     }
 }
+
+// VER CUOTAS QUE VENCEN EN EL ACTUAL MES
+export const getInstallmentsDueThisMonth = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = req.params.usuarioId as string
+        const ahora = new Date()
+        const cuotas = await prisma.cuota.findMany({
+            where: {
+                prestamo: {usuarioId},
+                fechaVencimiento: {
+                gte: new Date(ahora.getFullYear(), ahora.getMonth(), 1),
+                lt: new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
+            }
+            },
+        })
+        res.json(cuotas)
+    } catch(error) {
+        res.status(500).json({ error: String(error) })
+    }   
+}
+
+// VER CUOTAS VENCIDAS
+export const getInstallmentsVencidas = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = req.params.usuarioId as string
+        const ahora = new Date()
+        const cuotas = await prisma.cuota.findMany({
+            where: {
+                prestamo: {usuarioId},
+                fechaVencimiento: {
+                lt: ahora,
+            },
+            pagado: false,
+            },
+            include: {
+                prestamo: {
+                    include: {
+                        deudor: true
+                    }
+                }
+            }
+        })
+        res.json(cuotas)
+    } catch(error) {
+        res.status(500).json({ error: String(error) })
+    }   
+}
+//fecha de hoy >>> fecha vencimiento cuota 
