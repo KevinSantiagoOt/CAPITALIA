@@ -5,7 +5,7 @@ const router = Router()
 
 // RUTAS DEUDOR
 router.post('/deudores', createDebtor)
-router.get('/deudores/:cedula', getDebtorByCedula)
+router.get('/deudores/cedula/:cedula', getDebtorByCedula)
 router.put('/deudores/:id', updateDebtor)
 router.delete('/deudores/:id', deleteDebtor)
 router.get('/alldeudores/:usuarioId', getAllDebtors)
