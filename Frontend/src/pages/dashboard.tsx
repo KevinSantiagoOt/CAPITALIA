@@ -2,20 +2,20 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import api from "../api/axios";
 
-    interface Prestamo {
-    id: string
-    montoCapital: string
-    estado: string
-    fechaFinPlazo: string
-    deudor: { nombre: string }
-  } 
+interface Prestamo {
+  id: string;
+  montoCapital: string;
+  estado: string;
+  fechaFinPlazo: string;
+  deudor: { nombre: string };
+}
 
-    interface prestamoVencido{
-      id: string
-      nombreDeudor: string
-      fechaVencimiento: string
-      montoInteres: string
-    }
+interface prestamoVencido {
+  id: string;
+  nombreDeudor: string;
+  fechaVencimiento: string;
+  montoInteres: string;
+}
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ const Dashboard = () => {
     enMora: 0,
     deudores: 0,
     prestamosActivos: 0,
-    interesesEsteMes: 0
+    interesesEsteMes: 0,
   });
 
   // Almacenar los intereses del mes actual
@@ -45,7 +45,7 @@ const Dashboard = () => {
   });
 
   // Almacenar los datos de las cuotas vencidas
-  const [cuotasVencidas, setCuotasVencidas] = useState<prestamoVencido[]>([])
+  const [cuotasVencidas, setCuotasVencidas] = useState<prestamoVencido[]>([]);
 
   const [cedula, setCedula] = useState("");
 
@@ -66,21 +66,34 @@ const Dashboard = () => {
     id: "",
   });
 
-  // Obtener prestamos activos 
-    const [mostrarPrestamosActivos, setPrestamosActivos] = useState<Prestamo[]>([])
-  
+    // Datos para crear un nuevo prestamo
+  const [newPrestamo, setNewPrestamo] = useState({
+    montoCapital: "",
+    tasaInteres: "",
+    fechaInicio: "",
+    fechaFinPlazo: "",
+    estado: "activo",
+    deudorId: "",
+    usuarioId: "",
+  });
+
+  // Obtener prestamos activos
+  const [mostrarPrestamosActivos, setPrestamosActivos] = useState<Prestamo[]>(
+    [],
+  );
+
   useEffect(() => {
     const cargarStats = async () => {
       const usuarioId = localStorage.getItem("usuarioId");
 
-  // Obtener prestamos del usuario para calcular capital prestado
+      // Obtener prestamos del usuario para calcular capital prestado
       const res = await api.get(`/prestamosactivos/usuario/${usuarioId}`);
       const prestamos = res.data;
       const capital = prestamos.reduce(
         (acc: number, prestamo: { montoCapital: string }) =>
           acc + Number(prestamo.montoCapital),
         0,
-      )
+      );
       setStats((prev) => ({ ...prev, capitalPrestado: capital }));
       setPrestamosActivos(prestamos);
 
@@ -107,14 +120,21 @@ const Dashboard = () => {
           acc + Number(cuota.montoInteres),
         0,
       );
-      const datosVencidas = dtVencidas.map((cuota: { id: string; prestamo: { deudor: {nombre: string}}; fechaVencimiento: string; montoInteres: string }) => ({
-        id: cuota.id,
-        nombreDeudor: cuota.prestamo.deudor.nombre,
-        fechaVencimiento: cuota.fechaVencimiento,
-        montoInteres: cuota.montoInteres,
-      }));
+      const datosVencidas = dtVencidas.map(
+        (cuota: {
+          id: string;
+          prestamo: { deudor: { nombre: string } };
+          fechaVencimiento: string;
+          montoInteres: string;
+        }) => ({
+          id: cuota.id,
+          nombreDeudor: cuota.prestamo.deudor.nombre,
+          fechaVencimiento: cuota.fechaVencimiento,
+          montoInteres: cuota.montoInteres,
+        }),
+      );
       setStats((prev) => ({ ...prev, enMora: totalVencidas }));
-      setCuotasVencidas(datosVencidas)
+      setCuotasVencidas(datosVencidas);
     };
 
     cargarStats();
@@ -154,6 +174,7 @@ const Dashboard = () => {
             }
           : { existe: false, nombre: "", cedula: "", id: "" },
       );
+      setBusquedaRealizada(true);
     } catch {
       setDeudorExiste({ existe: false, nombre: "", cedula: "", id: "" });
       setBusquedaRealizada(true);
@@ -189,7 +210,26 @@ const Dashboard = () => {
       id: "",
     });
     modalNuevoPrestamo();
-  };  
+  };
+
+  // ------------------------------- Funcion para agregar un nuevo prestamo por cedula ----------------------------------
+  const nuevoPrestamo = async () => {
+    const usuarioId = localStorage.getItem("usuarioId");
+    const res = await api.post("/prestamos", {
+      montoCapital: newPrestamo.montoCapital,
+      tasaInteres: newPrestamo.tasaInteres,
+      fechaInicio: newPrestamo.fechaInicio,
+      fechaFinPlazo: newPrestamo.fechaFinPlazo || null,
+      estado: "activo",
+      deudorId: deudorExiste.id,
+      usuarioId,
+    }); if(res.status === 201){
+      modalNuevoPrestamo()
+      window.location.reload()
+    } else{
+      console.error('Error')
+    }
+  }
 
   return (
     <div style={{ display: "flex", height: "100vh", fontFamily: "sans-serif" }}>
@@ -570,7 +610,7 @@ const Dashboard = () => {
                 margin: "-6px",
               }}
             >
-          {/*------------------- Boton de ver mas en Mora ------------------- */}
+              {/*------------------- Boton de ver mas en Mora ------------------- */}
               <button
                 onClick={toggleModal}
                 disabled={stats.enMora === 0}
@@ -688,28 +728,29 @@ const Dashboard = () => {
                 }}
               >
                 {cuotasVencidas.map((prestamoVencido) => (
-                    <div
-                      key={prestamoVencido.id}
-                      style={{
-                        marginBottom: "1rem",
-                        padding: "0.5rem",
-                        borderBottom: "1px solid #e5e7eb",
-                      }}
-                    >
-                      <p>
-                        <strong>Deudor:</strong> {prestamoVencido.nombreDeudor}
-                      </p>
-                      <p>
-                        <strong>Fecha de vencimiento:</strong>{" "}
-                        {new Date(prestamoVencido.fechaVencimiento).toLocaleDateString()}
-                      </p>
-                      <p>
-                        <strong>Monto de interés:</strong> $
-                        {prestamoVencido.montoInteres?.toLocaleString() || "0"}
-                      </p>
-                    </div>
-                  ),
-                )}
+                  <div
+                    key={prestamoVencido.id}
+                    style={{
+                      marginBottom: "1rem",
+                      padding: "0.5rem",
+                      borderBottom: "1px solid #e5e7eb",
+                    }}
+                  >
+                    <p>
+                      <strong>Deudor:</strong> {prestamoVencido.nombreDeudor}
+                    </p>
+                    <p>
+                      <strong>Fecha de vencimiento:</strong>{" "}
+                      {new Date(
+                        prestamoVencido.fechaVencimiento,
+                      ).toLocaleDateString()}
+                    </p>
+                    <p>
+                      <strong>Monto de interés:</strong> $
+                      {prestamoVencido.montoInteres?.toLocaleString() || "0"}
+                    </p>
+                  </div>
+                ))}
               </div>
 
               <div
@@ -926,18 +967,105 @@ const Dashboard = () => {
                       />
                     </div>
                   )}
+                  <div
+                    style={{
+                      display: "flex",
+                      flexWrap: "wrap",
+                      alignItems: "center",
+                      padding: "1rem",
+                      justifyContent: "flex-end",
+                    }}
+                  ></div>
                 </div>
               </div>
 
-              <div
-                style={{
-                  display: "flex",
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  padding: "1rem",
-                  justifyContent: "flex-end",
-                }}
-              >
+              {/*------------------------ Si el deudor existe, mostrar informacion -------------------- */}
+              {busquedaRealizada && deudorExiste.existe && (
+                <div style={{ display:"flex", justifyContent: "center", color: "white",flexDirection:'column', alignItems:"center", marginBottom: '100px'}}>
+                  <br />
+                  <h2 style={{ marginTop: "-120px" }}>Datos del deudor</h2>
+                  <span style={{ }}>
+                    Nombre: {deudorExiste.nombre}
+                  </span>
+                  <br />
+                  <input
+                        type="text"
+                        placeholder="Monto del prestamo"
+                        value={newPrestamo.montoCapital}
+                        onChange={(e) =>
+                          setNewPrestamo({
+                            ...newPrestamo,
+                            montoCapital: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "30%",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                        }}
+                      />
+                      <br />
+                      <input
+                        type="text"
+                        placeholder="Tasa de interes"
+                        value={newPrestamo.tasaInteres}
+                        onChange={(e) =>
+                          setNewPrestamo({
+                            ...newPrestamo,
+                            tasaInteres: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "30%",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                        }}
+                      />
+                      <h3>Fecha de inicio del prestamo:</h3>
+                      <input
+                        type="text"
+                        placeholder="Fecha del prestamo"
+                        value={newPrestamo.fechaInicio}
+                        onChange={(e) =>
+                          setNewPrestamo({
+                            ...newPrestamo,
+                            fechaInicio: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "30%",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                        }}
+                      />
+                      <h3>Fecha de plazo del prestamo:</h3>
+                        <input
+                        type="text"
+                        placeholder="Fecha de plazo del prestamo"
+                        value={newPrestamo.fechaFinPlazo}
+                        onChange={(e) =>
+                          setNewPrestamo({
+                            ...newPrestamo,
+                            fechaFinPlazo: e.target.value,
+                          })
+                        }
+                        style={{
+                          width: "30%",
+                          border: "1px solid #e2e8f0",
+                          borderRadius: "8px",
+                          padding: "10px 12px",
+                          fontSize: "14px",
+                        }}
+                      />
+                      
+                </div>
+              )}
                 {/*------------------------ Boton de cerrar Model Nuevo Prestamo -------------------- */}
                 <button
                   onClick={(e) => {
@@ -952,14 +1080,32 @@ const Dashboard = () => {
                     backgroundColor: "transparent",
                     borderColor: "white",
                     color: "white",
-                    marginTop: "8px",
-                    padding: "6px 12px",
+                    marginTop: "0px",
+                    padding: "10px 12px",
+                    position: 'static',
+                    bottom:'100px'
                   }}
                   type="button"
                 >
                   Cerrar
                 </button>
-              </div>
+
+                <button 
+                  onClick={nuevoPrestamo}
+                  style={{  
+                    border: "1px solid transparent",
+                    cursor: "pointer",
+                    borderRadius: "8px",
+                    backgroundColor: "transparent",
+                    borderColor: "white",
+                    color: "white",
+                    marginTop: "0px",
+                    padding: "10px 12px",
+                   }}
+                   type='button'>
+                    Ingresar Prestamo
+                </button>
+
             </div>
           </div>
         )}
@@ -1008,24 +1154,23 @@ const Dashboard = () => {
           </thead>
           <tbody>
             {mostrarPrestamosActivos.map((prestamo) => (
-                <tr
-                  key={prestamo.id}
-                  style={{ borderBottom: "1px solid #e5e7eb" }}
-                >
-                  <td style={{ padding: "12px" }}>{prestamo.deudor.nombre}</td>
-                  <td style={{ padding: "12px" }}>
-                    ${prestamo.montoCapital?.toLocaleString() || "0"}
-                  </td>
-                  <td style={{ padding: "12px" }}>
-                    {prestamo.estado.charAt(0).toUpperCase() +
-                      prestamo.estado.slice(1)}
-                  </td>
-                  <td style={{ padding: "12px" }}>
-                    {new Date(prestamo.fechaFinPlazo).toLocaleDateString()}
-                  </td>
-                </tr>
-              ),
-            )}
+              <tr
+                key={prestamo.id}
+                style={{ borderBottom: "1px solid #e5e7eb" }}
+              >
+                <td style={{ padding: "12px" }}>{prestamo.deudor.nombre}</td>
+                <td style={{ padding: "12px" }}>
+                  ${prestamo.montoCapital?.toLocaleString() || "0"}
+                </td>
+                <td style={{ padding: "12px" }}>
+                  {prestamo.estado.charAt(0).toUpperCase() +
+                    prestamo.estado.slice(1)}
+                </td>
+                <td style={{ padding: "12px" }}>
+                  {new Date(prestamo.fechaFinPlazo).toLocaleDateString() || 'N/A' }
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
