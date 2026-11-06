@@ -101,6 +101,13 @@ export const getInstallmentsDueThisMonth = async (req: Request, res: Response) =
                 lt: new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
             }
             },
+            include:{
+                prestamo: {
+                    include: {
+                        deudor: true
+                    }
+                }
+            }
         })
         res.json(cuotas)
     } catch(error) {

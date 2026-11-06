@@ -1,12 +1,12 @@
 import { useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect} from "react";
 import api from "../api/axios";
 
 interface Prestamo {
   id: string;
   montoCapital: string;
   estado: string;
-  fechaFinPlazo: string;
+  fechaFinPlazo: string | null;
   deudor: { nombre: string };
 }
 
@@ -15,6 +15,13 @@ interface prestamoVencido {
   nombreDeudor: string;
   fechaVencimiento: string;
   montoInteres: string;
+}
+
+interface datosNewPrestador{
+  nombreNewDeudor: string,
+  telefono: string,
+  direccion: string,
+  id: string
 }
 
 const Dashboard = () => {
@@ -59,7 +66,7 @@ const Dashboard = () => {
   const [busquedaRealizada, setBusquedaRealizada] = useState(false);
 
   // Datos para crear un nuevo deudor
-  const [nuevoDeudor, setNuevoDeudor] = useState({
+  const [nuevoDeudor, setNuevoDeudor] = useState<datosNewPrestador>({
     nombreNewDeudor: "",
     telefono: "",
     direccion: "",
@@ -86,7 +93,8 @@ const Dashboard = () => {
     const cargarStats = async () => {
       const usuarioId = localStorage.getItem("usuarioId");
 
-      // Obtener prestamos del usuario para calcular capital prestado
+
+      //------------------- Obtener prestamos del usuario para calcular capital prestado--------------//
       const res = await api.get(`/prestamosactivos/usuario/${usuarioId}`);
       const prestamos = res.data;
       const capital = prestamos.reduce(
@@ -97,10 +105,12 @@ const Dashboard = () => {
       setStats((prev) => ({ ...prev, capitalPrestado: capital }));
       setPrestamosActivos(prestamos);
 
+
       // ------------- Obtener deudores del usuario para contar cantidad ------------------------//
       const res2 = await api.get(`/alldeudores/${usuarioId}`);
       const deudores = res2.data;
       setStats((prev) => ({ ...prev, deudores: deudores.length }));
+
 
       // ------------------------Obtener intereses del mes----------------------------//
       const res4 = await api.get(`/cuotas/prestamo/${usuarioId}/vencenpronto`);
@@ -111,6 +121,7 @@ const Dashboard = () => {
         0,
       );
       setStats3((prev) => ({ ...prev, interesesEsteMes: totalIntereses }));
+
 
       // --------------------------Obtener total en mora-------------------------------------//
       const res5 = await api.get(`/cuotas/prestamo/${usuarioId}/vencidas`);
@@ -135,8 +146,8 @@ const Dashboard = () => {
       );
       setStats((prev) => ({ ...prev, enMora: totalVencidas }));
       setCuotasVencidas(datosVencidas);
-    };
 
+    };
     cargarStats();
   }, []);
 
@@ -160,6 +171,7 @@ const Dashboard = () => {
 
   // ----------------------------------Función para buscar deudor por cedula-------------------------//
   const buscarDeudor = async () => {
+
     try {
       const res = await api.get(`/deudores/cedula/${cedula}`);
       const result = res.data;
@@ -313,7 +325,7 @@ const Dashboard = () => {
           >
             Principal
           </button>
-          <button
+          <button onClick={() => navigate('/debtors')}
             style={{
               width: "100%",
               backgroundColor: "transparent",
@@ -540,7 +552,7 @@ const Dashboard = () => {
                 margin: "4px 0 0 0",
               }}
             >
-              {stats.prestamosActivos?.toLocaleString() || "0"} préstamos
+              {mostrarPrestamosActivos?.length || "0"} préstamos
               activos
             </p>
           </div>
@@ -668,7 +680,7 @@ const Dashboard = () => {
                 margin: "4px 0 0 0",
               }}
             >
-              deudores nuevos este mes
+              Total deudores Registrados
             </p>
           </div>
         </div>
@@ -860,10 +872,10 @@ const Dashboard = () => {
                   }}
                 >
                   <input
-                    type="Number"
+                    type="Tel"
                     placeholder="Cédula"
                     value={cedula}
-                    onChange={(e) => setCedula(e.target.value)}
+                    onChange={(e) => setCedula(e.target.value.replace(/\D/g, ""))}
                     style={{
                       width: "30%",
                       border: "1px solid #e2e8f0",
@@ -879,6 +891,7 @@ const Dashboard = () => {
                     >
                       <button
                         onClick={buscarDeudor}
+                        disabled={!cedula || cedula.trim() === ""}
                         style={{
                           backgroundColor: "transparent",
                           color: "white",
@@ -1027,13 +1040,12 @@ const Dashboard = () => {
                       />
                       <h3>Fecha de inicio del prestamo:</h3>
                       <input
-                        type="text"
-                        placeholder="Fecha del prestamo"
-                        value={newPrestamo.fechaInicio}
+                        type="date"
+                        value={newPrestamo.fechaInicio.slice(0, 10)}
                         onChange={(e) =>
                           setNewPrestamo({
                             ...newPrestamo,
-                            fechaInicio: e.target.value,
+                            fechaInicio: `${e.target.value}T00:00:00.000Z`,
                           })
                         }
                         style={{
@@ -1090,7 +1102,26 @@ const Dashboard = () => {
                   Cerrar
                 </button>
 
+        {/*------------------------- Boton para ingresar nuevo deudor ---------------------------- */}
+                {busquedaRealizada && deudorExiste.existe === false &&(
                 <button 
+                  onClick={newDeudor}
+                  style={{  
+                    border: "1px solid transparent",
+                    cursor: "pointer",
+                    borderRadius: "8px",
+                    backgroundColor: "transparent",
+                    borderColor: "white",
+                    color: "white",
+                    marginTop: "0px",
+                    padding: "10px 12px",
+                   }}>
+                    Ingresar Deudor
+                </button>)}
+
+        {/*------------------------- Boton para ingresar nuevo prestamo ---------------------------- */}        
+                {busquedaRealizada && deudorExiste.existe === true &&(
+                  <button 
                   onClick={nuevoPrestamo}
                   style={{  
                     border: "1px solid transparent",
@@ -1101,11 +1132,9 @@ const Dashboard = () => {
                     color: "white",
                     marginTop: "0px",
                     padding: "10px 12px",
-                   }}
-                   type='button'>
+                   }}>
                     Ingresar Prestamo
-                </button>
-
+                </button>)}
             </div>
           </div>
         )}
@@ -1152,6 +1181,7 @@ const Dashboard = () => {
               </th>
             </tr>
           </thead>
+          
           <tbody>
             {mostrarPrestamosActivos.map((prestamo) => (
               <tr
@@ -1160,14 +1190,15 @@ const Dashboard = () => {
               >
                 <td style={{ padding: "12px" }}>{prestamo.deudor.nombre}</td>
                 <td style={{ padding: "12px" }}>
-                  ${prestamo.montoCapital?.toLocaleString() || "0"}
+                  {Number(prestamo.montoCapital || 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
                 </td>
                 <td style={{ padding: "12px" }}>
                   {prestamo.estado.charAt(0).toUpperCase() +
                     prestamo.estado.slice(1)}
                 </td>
                 <td style={{ padding: "12px" }}>
-                  {new Date(prestamo.fechaFinPlazo).toLocaleDateString() || 'N/A' }
+                  {prestamo.fechaFinPlazo 
+                  ? new Date(prestamo.fechaFinPlazo).toLocaleDateString() : 'Indefinido' }
                 </td>
               </tr>
             ))}
@@ -1177,5 +1208,4 @@ const Dashboard = () => {
     </div>
   );
 };
-
 export default Dashboard;
