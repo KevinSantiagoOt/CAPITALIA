@@ -25,7 +25,7 @@ type Deudor = {
   id: string;
   nombre: string;
   cedula: string;
-  telefono: string;
+  telefono: string | null;
   direccion: string;
   prestamos: PrestamoResumen[];
 };
@@ -34,11 +34,14 @@ export default function DeudoresScreen() {
   const [deudores, setDeudores] = useState<Deudor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // "todos" = los que no están archivados
+  const [vista, setVista] = useState<"todos" | "archivados">("todos");
 
   const cargarDeudores = useCallback(async () => {
     try {
       const userId = await SecureStore.getItemAsync("userId");
-      const data = await api<Deudor[]>(`/api/alldeudores/${userId}`);
+      const query = vista === "archivados" ? "?archivados=true" : "";
+      const data = await api<Deudor[]>(`/api/alldeudores/${userId}${query}`);
       setDeudores(data);
     } catch (error) {
       console.log("Error cargando deudores:", error);
@@ -46,7 +49,13 @@ export default function DeudoresScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, []);
+  }, [vista]);
+
+  const cambiarVista = (nueva: "todos" | "archivados") => {
+    if (nueva === vista) return;
+    setLoading(true);
+    setVista(nueva);
+  };
 
   // Recarga cada vez que vuelves a esta pestaña (ej. después de crear un deudor)
   useFocusEffect(
@@ -60,14 +69,13 @@ export default function DeudoresScreen() {
     cargarDeudores();
   };
 
-  const totalPrestado = (prestamos: PrestamoResumen[]) => {
-    return prestamos.reduce((sum, p) => sum + Number(p.montoCapital), 0);
-  };
-
   const formatearMonto = (monto: number) => `$${monto.toLocaleString("es-CO")}`;
 
   const renderDeudor = ({ item }: { item: Deudor }) => {
-    const activos = item.prestamos.filter((p) => p.estado === "activo").length;
+    // Solo cuentan los préstamos activos: los pagados ya no son deuda
+    const prestamosActivos = item.prestamos.filter((p) => p.estado === "activo");
+    const capitalPendiente = prestamosActivos.reduce((sum, p) => sum + Number(p.montoCapital), 0);
+    const conDeuda = prestamosActivos.length > 0;
 
     return (
       <TouchableOpacity
@@ -76,23 +84,49 @@ export default function DeudoresScreen() {
       >
         <View style={styles.cardHeader}>
           <Text style={styles.nombre}>{item.nombre}</Text>
-          {activos > 0 && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>
-                {activos} préstamo{activos > 1 ? "s" : ""}
-              </Text>
-            </View>
-          )}
+          <View style={[styles.badge, !conDeuda && styles.badgeAlDia]}>
+            <Text style={[styles.badgeText, !conDeuda && styles.badgeTextAlDia]}>
+              {conDeuda ? "Con deuda" : "Al día"}
+            </Text>
+          </View>
         </View>
         <Text style={styles.detalle}>Cédula: {item.cedula}</Text>
-        <Text style={styles.detalle}>Tel: {item.telefono}</Text>
-        <Text style={styles.total}>{formatearMonto(totalPrestado(item.prestamos))}</Text>
+        {item.telefono && <Text style={styles.detalle}>Tel: {item.telefono}</Text>}
+        {conDeuda ? (
+          <Text style={styles.total}>
+            Debe {formatearMonto(capitalPendiente)}
+            <Text style={styles.totalDetalle}>
+              {"  "}en {prestamosActivos.length} préstamo{prestamosActivos.length > 1 ? "s" : ""}
+            </Text>
+          </Text>
+        ) : (
+          <Text style={styles.sinDeuda}>Sin deudas pendientes</Text>
+        )}
       </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
+      <View style={styles.tabsFiltro}>
+        <TouchableOpacity
+          style={[styles.filtroBtn, vista === "todos" && styles.filtroBtnActivo]}
+          onPress={() => cambiarVista("todos")}
+        >
+          <Text style={[styles.filtroText, vista === "todos" && styles.filtroTextActivo]}>
+            Todos
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.filtroBtn, vista === "archivados" && styles.filtroBtnActivo]}
+          onPress={() => cambiarVista("archivados")}
+        >
+          <Text style={[styles.filtroText, vista === "archivados" && styles.filtroTextActivo]}>
+            Archivados
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <ActivityIndicator size="large" style={{ marginTop: 40 }} />
       ) : (
@@ -102,14 +136,20 @@ export default function DeudoresScreen() {
           renderItem={renderDeudor}
           contentContainerStyle={styles.lista}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<Text style={styles.vacio}>No hay deudores registrados</Text>}
+          ListEmptyComponent={
+            <Text style={styles.vacio}>
+              {vista === "archivados" ? "No hay deudores archivados" : "No hay deudores registrados"}
+            </Text>
+          }
         />
       )}
 
-      {/* Botón flotante para crear un deudor */}
-      <TouchableOpacity style={styles.fab} onPress={() => router.push("/deudor/nuevo")}>
-        <Ionicons name="add" size={30} color="#fff" />
-      </TouchableOpacity>
+      {/* Botón flotante para crear un deudor (no en la vista de archivados) */}
+      {vista === "todos" && (
+        <TouchableOpacity style={styles.fab} onPress={() => router.push("/deudor/nuevo")}>
+          <Ionicons name="add" size={30} color="#fff" />
+        </TouchableOpacity>
+      )}
     </SafeAreaView>
   );
 }
@@ -117,6 +157,16 @@ export default function DeudoresScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
   lista: { padding: 12, paddingBottom: 90 }, // espacio para que el botón + no tape la última tarjeta
+  tabsFiltro: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingTop: 12 },
+  filtroBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "#e5e5e5",
+  },
+  filtroBtnActivo: { backgroundColor: "#2563eb" },
+  filtroText: { color: "#666", fontWeight: "600" },
+  filtroTextActivo: { color: "#fff" },
   fab: {
     position: "absolute",
     right: 20,
@@ -151,13 +201,17 @@ const styles = StyleSheet.create({
   },
   nombre: { fontSize: 16, fontWeight: "bold" },
   badge: {
-    backgroundColor: "#dbeafe",
+    backgroundColor: "#fef3c7",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 8,
   },
-  badgeText: { color: "#2563eb", fontSize: 12, fontWeight: "600" },
+  badgeText: { color: "#b45309", fontSize: 12, fontWeight: "600" },
+  badgeAlDia: { backgroundColor: "#dcfce7" },
+  badgeTextAlDia: { color: "#16a34a" },
   detalle: { color: "#666", fontSize: 13, marginTop: 2 },
-  total: { fontSize: 18, fontWeight: "bold", color: "#16a34a", marginTop: 8 },
+  total: { fontSize: 18, fontWeight: "bold", color: "#1f2937", marginTop: 8 },
+  totalDetalle: { fontSize: 13, fontWeight: "normal", color: "#666" },
+  sinDeuda: { fontSize: 14, color: "#16a34a", marginTop: 8 },
   vacio: { textAlign: "center", marginTop: 40, color: "#999" },
 });

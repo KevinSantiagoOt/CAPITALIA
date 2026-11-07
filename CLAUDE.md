@@ -112,7 +112,7 @@ No correr `npm audit fix --force`: puede romper el proyecto.
 
 1. **Terminar y verificar el upgrade a SDK 58** (sección 7). Kevin pidió comprobar que funciona antes de seguir.
 2. ~~Migrar el resto de pantallas a `api()`~~ (hecho el 6 nov 2026). **No migrar `login.tsx`**: ahí un 401 significa contraseña incorrecta y `api()` lo trataría como sesión vencida.
-3. **Crear, editar y eliminar deudores**, luego **préstamos**. Crear deudor ya está (`deudor/nuevo.tsx`, botón + en la pestaña Deudores); faltan editar y eliminar, y todo lo de préstamos.
+3. **Crear, editar y eliminar deudores**, luego **préstamos**. Deudores ya está completo: crear (`deudor/nuevo.tsx`), editar (`deudor/editar.tsx`, recibe `cedula` por params) y eliminar (desde el detalle), con el formulario compartido en `components/deudor-form.tsx`. **No se puede eliminar ni archivar un deudor con préstamos activos** (409). Sin activos sí se puede eliminar, pero la BD borra en cascada sus préstamos cerrados y cuotas, y la app lo avisa en la confirmación. **Archivar** (`PUT /api/deudores/:id/archivar` con `{ archivado }`) lo oculta de la lista sin borrar nada; `GET /api/alldeudores/:userId?archivados=true` trae los archivados, y la pestaña Deudores tiene el selector Activos/Archivados. Falta todo lo de préstamos.
 4. **Subir documentos (letras)** desde el detalle del préstamo, con `expo-document-picker` y `expo-image-picker`.
 5. **Lógica de negocio en el backend** (sección 5): ~~generación automática de cuotas~~ (hecho el 6 nov 2026); falta el cierre de préstamo al devolver el capital.
 6. **Llevar a producción:** desplegar el backend en un servidor con URL fija (Railway, Render o Fly.io), cambiar `BASE_URL` en `api.ts`, y generar el build con `eas build` para que el papá instale la app sin Expo Go.
@@ -128,3 +128,5 @@ No correr `npm audit fix --force`: puede romper el proyecto.
 - **Claves de SecureStore:** siempre `userToken` (no `token`).
 - **La IP local puede cambiar** si el router reasigna direcciones; el celular y el PC deben estar en la misma WiFi.
 - **Instalar paquetes Expo** con `npx expo install`, no con `npm install` a secas.
+- **Cambios en la BD:** no hay carpeta de migraciones; se usa `npx prisma db push`. Antes, revisar el SQL con `npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script` y confirmar con Kevin. `prisma generate` falla con `EPERM` si el backend está corriendo (Windows bloquea el `.dll` del motor): hay que detenerlo primero.
+- **En pruebas con datos reales, buscar por id y no por cédula:** Kevin edita los datos desde la app mientras prueba, y una cédula vieja da falsos errores.
