@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useLocalSearchParams, Stack, router } from "expo-router";
+import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
 import { estadoVencimiento } from "@/utils/fechas";
@@ -54,9 +54,12 @@ export default function DetallePrestamoScreen() {
     }
   }, [id]);
 
-  useEffect(() => {
-    cargarPrestamo();
-  }, [cargarPrestamo]);
+  // Recarga cada vez que vuelves a esta pantalla (ej. después de editar)
+  useFocusEffect(
+    useCallback(() => {
+      cargarPrestamo();
+    }, [cargarPrestamo])
+  );
 
   // Marca o desmarca una cuota. El backend pone (o borra) la fecha de pago
   const cambiarPago = async (cuotaId: string, pagado: boolean) => {
@@ -241,10 +244,19 @@ export default function DetallePrestamoScreen() {
         )}
 
         <View style={styles.acciones}>
+          {/* Editar y cerrar solo mientras el préstamo sigue corriendo */}
           {prestamo.estado === "activo" && !prestamo.capitalDevuelto && (
-            <TouchableOpacity style={styles.botonCerrar} onPress={cerrar}>
-              <Text style={styles.botonCerrarTexto}>Cerrar préstamo</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity
+                style={styles.botonEditar}
+                onPress={() => router.push({ pathname: "/prestamo/editar", params: { id: prestamo.id } })}
+              >
+                <Text style={styles.botonEditarTexto}>Editar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.botonCerrar} onPress={cerrar}>
+                <Text style={styles.botonCerrarTexto}>Cerrar préstamo</Text>
+              </TouchableOpacity>
+            </>
           )}
           <TouchableOpacity style={styles.botonEliminar} onPress={eliminar}>
             <Text style={styles.botonEliminarTexto}>Eliminar</Text>
@@ -286,7 +298,7 @@ export default function DetallePrestamoScreen() {
                   {actualizandoCuota === item.id ? (
                     <ActivityIndicator color="#16a34a" size="small" />
                   ) : (
-                    <Text style={styles.pagadaText}>Pagada ✓</Text>
+                    <Text style={styles.pagadaText}>Pagada</Text>
                   )}
                 </TouchableOpacity>
               ) : (
@@ -322,6 +334,14 @@ const styles = StyleSheet.create({
   deudorNombre: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 2 },
   monto: { fontSize: 26, fontWeight: "bold", color: "#2563eb", marginBottom: 8 },
   acciones: { flexDirection: "row", gap: 10, marginTop: 14 },
+  botonEditar: {
+    flex: 1,
+    backgroundColor: "#dbeafe",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  botonEditarTexto: { color: "#2563eb", fontWeight: "600" },
   botonCerrar: {
     flex: 2,
     backgroundColor: "#dcfce7",

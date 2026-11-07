@@ -1,4 +1,5 @@
 import { Request, Response } from "express"
+import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 import { syncInstallments, actualizarEstadoPorCuotas } from "../services/installmentService"
 
@@ -71,25 +72,72 @@ export const getLoanById = async (req: Request, res: Response) => {
 }
 
 // ACTUALIZAR PRESTAMO
+// Ajusta las cuotas pendientes a los datos nuevos; las pagadas no se tocan
+// - Monto o tasa: las cuotas sin pagar toman el nuevo interés
+// - Fecha fin: se borran las cuotas sin pagar posteriores; si se alarga, la sincronización crea las que falten
+// - Fecha de inicio: solo si no hay cuotas pagadas; se rehacen todas las cuotas
 export const updateLoan = async (req: Request, res: Response) => {
     try{
         const usuarioId = res.locals.usuarioId as string
         const {id} = req.params
         const idStrg = String(id)
-        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado} = req.body
+        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo} = req.body
+
+        if (!(Number(montoCapital) > 0) || !(Number(tasaInteres) > 0)) {
+            return res.status(400).json({ message: "El monto y la tasa de interés deben ser mayores a cero" })
+        }
+        const inicio = new Date(fechaInicio)
+        const fin = fechaFinPlazo ? new Date(fechaFinPlazo) : null
+        if (isNaN(inicio.getTime()) || (fin && isNaN(fin.getTime()))) {
+            return res.status(400).json({ message: "Fecha inválida" })
+        }
+        if (fin && fin <= inicio) {
+            return res.status(400).json({ message: "La fecha fin debe ser posterior a la fecha de inicio" })
+        }
 
         const existe = await prisma.prestamo.findFirst({ where: { id: idStrg, usuarioId } })
         if (!existe) {
             return res.status(404).json({ message: "No se encontro el préstamo" })
         }
+        if (existe.estado !== "activo" || existe.capitalDevuelto) {
+            return res.status(409).json({ message: "No se puede editar un préstamo cerrado" })
+        }
 
-        const updatedLoan = await prisma.prestamo.update({
-            where: { id: idStrg },
-            data: { montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado }
+        const cambiaInicio = inicio.getTime() !== existe.fechaInicio.getTime()
+        if (cambiaInicio) {
+            const pagadas = await prisma.cuota.count({ where: { prestamoId: idStrg, pagado: true } })
+            if (pagadas > 0) {
+                return res.status(409).json({ message: "No se puede cambiar la fecha de inicio porque ya tiene cuotas pagadas" })
+            }
+        }
+
+        const montoInteres = new Prisma.Decimal(montoCapital).mul(tasaInteres).div(100).toDecimalPlaces(2)
+
+        const updatedLoan = await prisma.$transaction(async (tx) => {
+            const actualizado = await tx.prestamo.update({
+                where: { id: idStrg },
+                data: { montoCapital, tasaInteres, fechaInicio: inicio, fechaFinPlazo: fin }
+            })
+
+            if (cambiaInicio) {
+                // No hay pagadas (se verificó arriba): se borran todas y la sincronización las rehace
+                await tx.cuota.deleteMany({ where: { prestamoId: idStrg } })
+            } else {
+                if (fin) {
+                    await tx.cuota.deleteMany({ where: { prestamoId: idStrg, pagado: false, fechaVencimiento: { gt: fin } } })
+                }
+                await tx.cuota.updateMany({ where: { prestamoId: idStrg, pagado: false }, data: { montoInteres } })
+            }
+            return actualizado
         })
+
+        // Crea las cuotas que falten con los datos nuevos
+        await syncInstallments(usuarioId)
+
         res.json(updatedLoan)
     } catch(error) {
-        res.status(404).json({ message: "No se encontro el préstamo" })
+        console.error(error)
+        res.status(500).json({ error: "Error en el servidor" })
     }
 }
 

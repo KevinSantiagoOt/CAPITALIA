@@ -127,7 +127,7 @@ export default function HomeScreen() {
         {/* Cuotas vencidas */}
         <Text style={styles.seccionTitulo}>Cuotas vencidas</Text>
         {vencidas.length === 0 ? (
-          <Text style={styles.vacio}>No hay cuotas vencidas 🎉</Text>
+          <Text style={styles.vacio}>No hay cuotas vencidas</Text>
         ) : (
           vencidas.map((cuota) => (
             <TouchableOpacity

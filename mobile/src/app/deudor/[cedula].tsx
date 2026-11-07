@@ -233,7 +233,8 @@ export default function DetalleDeudorScreen() {
             <Text style={styles.monto}>{formatearMonto(item.montoCapital)}</Text>
             <Text style={styles.detalle}>Interés: {item.tasaInteres}%</Text>
             <Text style={styles.detalle}>
-              {formatearFecha(item.fechaInicio)} → {formatearFecha(item.fechaFinPlazo)}
+              Desde {formatearFecha(item.fechaInicio)}
+              {item.fechaFinPlazo ? ` hasta ${formatearFecha(item.fechaFinPlazo)}` : " · Sin fecha fin"}
             </Text>
             <Text style={[styles.estado, item.estado === "activo" && styles.estadoActivo]}>
               {item.estado}

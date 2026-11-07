@@ -13,6 +13,7 @@ App para que el papá de Kevin administre los préstamos que hace a otras person
 ## 2. Cómo trabajar con Kevin
 
 - **Idioma:** español, tono cálido y cercano.
+- **Sin emojis en la app:** ningún texto de la interfaz lleva emojis ni símbolos decorativos (✓, →). Pedido de Kevin.
 - **Nivel:** sabe React y lo básico de desarrollo, pero **nunca había programado para móvil**. Al explicar, aclara lo específico de React Native (View, Text, StyleSheet, Expo Router, SecureStore).
 - **Método de trabajo:** **Claude hace los cambios directamente en el código** (tiene acceso total al repo). Kevin no quiere hacerlos a mano. Después de cada cambio, explica bien qué se cambió, en qué archivo y por qué.
 - **Para depurar:** los procesos (backend, Metro/Expo) corren en Warp, no dentro de Claude Code. Pide el mensaje de error tal cual o una captura en vez de adivinar.
@@ -78,6 +79,9 @@ Guardado en `expo-secure-store` tras el login: `userToken`, `userName`, `userId`
 - Al marcar una cuota como pagada sin enviar `fechaPago`, el backend guarda la fecha de hoy.
 - **Cerrar préstamo** (`POST /api/prestamos/:id/cerrar` con `{ conservarPendientes }`): el deudor devolvió el capital. Se guarda la fecha en `prestamos.capital_devuelto` y se borran las cuotas futuras sin pagar. Si tenía cuotas vencidas sin pagar, la app pregunta: **conservarlas como deuda** (sigue `activo`, ya no se generan cuotas, y al pagar la última pasa solo a `pagado` vía `actualizarEstadoPorCuotas`) o **eliminarlas** (queda `pagado` de una vez). Decidido por Kevin el 6 nov 2026.
 - **Eliminar préstamo** es para registros hechos por error: borra el préstamo y todas sus cuotas.
+- **Editar préstamo** (`prestamo/editar.tsx`, solo si está activo y sin capital devuelto): las cuotas pagadas nunca cambian. Monto/tasa → las cuotas sin pagar toman el nuevo interés. Fecha fin → se borran las sin pagar posteriores y la sincronización crea las que falten. Fecha de inicio → solo si no hay cuotas pagadas (la app la bloquea); se rehacen todas. El formulario de nuevo/editar está en `components/prestamo-form.tsx`.
+- **Desmarcar cuota**: tocar "Pagada ✓" en el detalle; el backend borra `fechaPago` y reabre el préstamo si se había cerrado solo.
+- **"Vencida" = antes de hoy; "vence hoy" no es vencida.** En la app usar `utils/fechas.ts` (`estadoVencimiento`); en el backend comparar contra el inicio del día en UTC, nunca contra `new Date()`.
 - Los préstamos tienen **documentos**: las "letras", que son el documento de compromiso firmado por ambas partes. Suelen ser PDFs escaneados o fotos.
 - La app es **principalmente para Wilfer**. Abrirla a más prestamistas queda para más adelante; por eso la cédula del deudor sigue siendo **única en toda la tabla** (no por prestamista). Cambiarlo a `@@unique([cedula, usuarioId])` se decidirá cuando se amplíe.
 - Usuarios en la BD: hay **dos prestamistas reales, Wilfer (el papá) y Kevin Otalvaro**. Cada uno debe ver solo sus deudores, préstamos y cuotas; nunca cruzarlos. Carlos Mendoza y Ana Gómez son de prueba; los préstamos de 2024 son de Carlos.
