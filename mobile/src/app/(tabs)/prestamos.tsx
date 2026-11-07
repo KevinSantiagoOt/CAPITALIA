@@ -13,6 +13,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
+import { estadoVencimiento } from "@/utils/fechas";
 
 type Cuota = {
   id: string;
@@ -81,8 +82,7 @@ export default function PrestamosScreen() {
 
   const contarCuotasVencidas = (cuotas: Cuota[] | undefined) => {
     if (!cuotas || cuotas.length === 0) return 0;
-    const hoy = new Date();
-    return cuotas.filter((c) => !c.pagado && new Date(c.fechaVencimiento) < hoy).length;
+    return cuotas.filter((c) => !c.pagado && estadoVencimiento(c.fechaVencimiento) === "vencida").length;
   };
 
   const formatearMonto = (monto: number) => `$${monto.toLocaleString("es-CO")}`;

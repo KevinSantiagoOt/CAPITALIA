@@ -12,6 +12,7 @@ import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
+import { estadoVencimiento } from "@/utils/fechas";
 
 type CuotaVencida = {
   id: string;
@@ -162,6 +163,11 @@ export default function HomeScreen() {
                 <Text style={styles.cuotaNombre}>
                   {cuota.prestamo?.deudor?.nombre ?? "Deudor"}
                 </Text>
+                {estadoVencimiento(cuota.fechaVencimiento) === "hoy" ? (
+                  <Text style={[styles.cuotaFecha, styles.textoHoy]}>Vence hoy</Text>
+                ) : (
+                  <Text style={styles.cuotaFecha}>Vence: {formatearFecha(cuota.fechaVencimiento)}</Text>
+                )}
               </View>
               <Text style={styles.cuotaMonto}>{formatearMonto(cuota.montoInteres)}</Text>
             </TouchableOpacity>
@@ -202,5 +208,6 @@ const styles = StyleSheet.create({
   bordeAmarillo: { borderLeftColor: "#ca8a04" },
   cuotaNombre: { fontWeight: "600", fontSize: 15 },
   cuotaFecha: { fontSize: 13, color: "#666", marginTop: 2 },
+  textoHoy: { color: "#b45309", fontWeight: "600" },
   cuotaMonto: { fontWeight: "bold", fontSize: 15, color: "#2563eb" },
 });

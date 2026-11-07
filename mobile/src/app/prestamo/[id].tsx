@@ -11,6 +11,7 @@ import {
 import { useLocalSearchParams, Stack, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
+import { estadoVencimiento } from "@/utils/fechas";
 
 type Cuota = {
   id: string;
@@ -57,29 +58,38 @@ export default function DetallePrestamoScreen() {
     cargarPrestamo();
   }, [cargarPrestamo]);
 
-  const marcarComoPagada = async (cuotaId: string, fechaVencimiento: string) => {
-  setActualizandoCuota(cuotaId);
-  try {
-    await api(`/api/cuotas/${cuotaId}`, {
-      method: "PUT",
-      body: { fechaVencimiento, pagado: true },
-    });
+  // Marca o desmarca una cuota. El backend pone (o borra) la fecha de pago
+  const cambiarPago = async (cuotaId: string, pagado: boolean) => {
+    setActualizandoCuota(cuotaId);
+    try {
+      await api(`/api/cuotas/${cuotaId}`, { method: "PUT", body: { pagado } });
+      await cargarPrestamo();
+    } catch (error) {
+      Alert.alert("Error", pagado ? "No se pudo marcar la cuota como pagada" : "No se pudo desmarcar la cuota");
+    } finally {
+      setActualizandoCuota(null);
+    }
+  };
 
-    await cargarPrestamo();
-  } catch (error) {
-    Alert.alert("Error", "No se pudo marcar la cuota como pagada");
-  } finally {
-    setActualizandoCuota(null);
-  }
-};
+  // Para corregir un "Marcar pagada" tocado por error
+  const desmarcar = (cuota: Cuota) => {
+    Alert.alert(
+      "Desmarcar cuota",
+      `¿La cuota de ${formatearMonto(cuota.montoInteres)} del ${formatearFecha(cuota.fechaVencimiento)} no estaba pagada? Volverá a quedar pendiente.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Desmarcar", style: "destructive", onPress: () => cambiarPago(cuota.id, false) },
+      ]
+    );
+  };
 
   // CERRAR: el deudor devolvió el capital
   const cerrar = () => {
     if (!prestamo) return;
 
-    const hoy = new Date();
-    const vencidas = prestamo.cuotas.filter((c) => !c.pagado && new Date(c.fechaVencimiento) <= hoy);
-    const futuras = prestamo.cuotas.filter((c) => !c.pagado && new Date(c.fechaVencimiento) > hoy).length;
+    // La de hoy cuenta como pendiente (se debe), no como futura (igual que en el backend)
+    const vencidas = prestamo.cuotas.filter((c) => !c.pagado && estadoVencimiento(c.fechaVencimiento) !== "futura");
+    const futuras = prestamo.cuotas.filter((c) => !c.pagado && estadoVencimiento(c.fechaVencimiento) === "futura").length;
     const totalVencidas = vencidas.reduce((sum, c) => sum + Number(c.montoInteres), 0);
     // Sin vencidas: "Sus 3 cuotas futuras se eliminarán."
     // Con vencidas: "Su próxima cuota se eliminará." / "Sus próximas cuotas se eliminarán."
@@ -183,9 +193,6 @@ export default function DetallePrestamoScreen() {
     });
   };
 
-  const estaVencida = (cuota: Cuota) => {
-    return !cuota.pagado && new Date(cuota.fechaVencimiento) < new Date();
-  };
 
   if (loading) {
     return (
@@ -253,25 +260,39 @@ export default function DetallePrestamoScreen() {
         contentContainerStyle={{ padding: 12 }}
         ListEmptyComponent={<Text style={styles.vacio}>Sin cuotas registradas</Text>}
         renderItem={({ item }) => {
-          const vencida = estaVencida(item);
+          const estado = estadoVencimiento(item.fechaVencimiento);
+          const vencida = !item.pagado && estado === "vencida";
+          const venceHoy = !item.pagado && estado === "hoy";
           return (
             <View style={styles.cuotaRow}>
               <View style={{ flex: 1 }}>
                 <Text style={styles.cuotaMonto}>{formatearMonto(item.montoInteres)}</Text>
-                <Text style={[styles.cuotaFecha, vencida && styles.textoVencido]}>
-                  Vence: {formatearFecha(item.fechaVencimiento)}
+                <Text style={[styles.cuotaFecha, vencida && styles.textoVencido, venceHoy && styles.textoHoy]}>
+                  {venceHoy ? "Vence hoy" : `Vence: ${formatearFecha(item.fechaVencimiento)}`}
                   {vencida && " (vencida)"}
                 </Text>
+                {item.pagado && item.fechaPago && (
+                  <Text style={styles.cuotaFecha}>Pagada el {formatearFecha(item.fechaPago)}</Text>
+                )}
               </View>
 
               {item.pagado ? (
-                <View style={styles.pagadaBadge}>
-                  <Text style={styles.pagadaText}>Pagada</Text>
-                </View>
+                // Se puede tocar para desmarcar si fue un error
+                <TouchableOpacity
+                  style={styles.pagadaBadge}
+                  onPress={() => desmarcar(item)}
+                  disabled={actualizandoCuota === item.id}
+                >
+                  {actualizandoCuota === item.id ? (
+                    <ActivityIndicator color="#16a34a" size="small" />
+                  ) : (
+                    <Text style={styles.pagadaText}>Pagada ✓</Text>
+                  )}
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   style={styles.pagarBtn}
-                  onPress={() => marcarComoPagada(item.id, item.fechaVencimiento)}
+                  onPress={() => cambiarPago(item.id, true)}
                   disabled={actualizandoCuota === item.id}
                 >
                   {actualizandoCuota === item.id ? (
@@ -336,6 +357,7 @@ const styles = StyleSheet.create({
   cuotaMonto: { fontSize: 16, fontWeight: "600" },
   cuotaFecha: { fontSize: 13, color: "#666", marginTop: 2 },
   textoVencido: { color: "#dc2626", fontWeight: "600" },
+  textoHoy: { color: "#b45309", fontWeight: "600" },
   pagadaBadge: {
     backgroundColor: "#dcfce7",
     paddingHorizontal: 12,

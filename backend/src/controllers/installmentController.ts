@@ -128,15 +128,20 @@ export const getInstallmentsDueThisMonth = async (req: Request, res: Response) =
     try {
         const usuarioId = res.locals.usuarioId as string
         await syncInstallments(usuarioId)
+        // Sin pagar, desde hoy hasta fin de mes (las de días anteriores ya salen en "vencidas")
         const ahora = new Date()
+        const inicioDeHoy = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()))
+        const inicioMesSiguiente = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth() + 1, 1))
         const cuotas = await prisma.cuota.findMany({
             where: {
                 prestamo: {usuarioId},
+                pagado: false,
                 fechaVencimiento: {
-                gte: new Date(ahora.getFullYear(), ahora.getMonth(), 1),
-                lt: new Date(ahora.getFullYear(), ahora.getMonth() + 1, 1)
+                gte: inicioDeHoy,
+                lt: inicioMesSiguiente
             }
             },
+            orderBy: { fechaVencimiento: "asc" },
             include:{
                 prestamo: {
                     include: {
@@ -157,12 +162,15 @@ export const getInstallmentsVencidas = async (req: Request, res: Response) => {
     try {
         const usuarioId = res.locals.usuarioId as string
         await syncInstallments(usuarioId)
+        // Vencida = antes de hoy. Se compara contra el inicio del día porque las fechas no tienen hora;
+        // con la hora actual, una cuota de hoy saldría vencida desde la medianoche
         const ahora = new Date()
+        const inicioDeHoy = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), ahora.getDate()))
         const cuotas = await prisma.cuota.findMany({
             where: {
                 prestamo: {usuarioId},
                 fechaVencimiento: {
-                lt: ahora,
+                lt: inicioDeHoy,
             },
             pagado: false,
             },

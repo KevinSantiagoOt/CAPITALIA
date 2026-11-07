@@ -254,9 +254,8 @@ export default function NuevoPrestamoScreen() {
               </Text>
               {cuotasVencidas > 0 && (
                 <Text style={styles.previewAviso}>
-                  Como el préstamo empezó antes, {cuotasVencidas} cuota{cuotasVencidas !== 1 ? "s" : ""} ya{" "}
-                  {cuotasVencidas !== 1 ? "quedarán vencidas" : "quedará vencida"}. Después marca como pagadas las que ya
-                  te pagó.
+                  El préstamo empezará con {cuotasVencidas} cuota{cuotasVencidas !== 1 ? "s" : ""} vencida
+                  {cuotasVencidas !== 1 ? "s" : ""}.
                 </Text>
               )}
             </View>
