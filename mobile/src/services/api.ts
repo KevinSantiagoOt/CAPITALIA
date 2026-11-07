@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 
-export const BASE_URL = "http://192.168.100.25:3000";
+export const BASE_URL = "http://192.168.100.6:3000";
 
 type Options = {
   method?: "GET" | "POST" | "PUT" | "DELETE";

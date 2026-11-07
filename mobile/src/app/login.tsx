@@ -2,8 +2,10 @@ import {useState} from 'react';
 import * as SecureStore from 'expo-secure-store';
 import {router} from 'expo-router';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
+import { BASE_URL } from '@/services/api';
 
-const ApiURL = "http://192.168.100.25:3000/api/auth/login"
+// El login no usa api(): aquí un 401 significa contraseña incorrecta, no sesión vencida
+const ApiURL = `${BASE_URL}/api/auth/login`
 
 export default function PantallaInicio(){
   const [email, setEmail] = useState('')

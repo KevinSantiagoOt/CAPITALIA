@@ -8,10 +8,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { useLocalSearchParams, router, Stack } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const BASE_URL = "http://192.168.100.25:3000";
+import { api } from "@/services/api";
 
 type Prestamo = {
   id: string;
@@ -38,11 +36,7 @@ export default function DetalleDeudorScreen() {
 
   const cargarDeudor = useCallback(async () => {
     try {
-      const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch(`${BASE_URL}/api/deudores/cedula/${cedula}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
+      const data = await api<DeudorDetalle>(`/api/deudores/cedula/${cedula}`);
       setDeudor(data);
     } catch (error) {
       console.log("Error cargando deudor:", error);

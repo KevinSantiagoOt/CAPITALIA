@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../lib/prisma"
+import { syncInstallments } from "../services/installmentService"
 
 // CREAR LA CUOTA 
 export const createInstallment = async (req: Request, res: Response) => {
@@ -35,10 +36,15 @@ export const updateInstallment = async (req: Request, res: Response) => {
         const {id} = req.params
         const idStrg = String(id)
         const {pagado, fechaPago} = req.body
-        
+
+        // Si se marca como pagada sin fecha, se toma la de hoy; si se desmarca, se borra
+        let fechaPagoFinal = fechaPago
+        if (fechaPago === undefined && pagado === true) fechaPagoFinal = new Date()
+        if (fechaPago === undefined && pagado === false) fechaPagoFinal = null
+
         const updatedInstallment = await prisma.cuota.update({
             where: { id: idStrg },
-            data: { pagado, fechaPago }
+            data: { pagado, fechaPago: fechaPagoFinal }
         })
         res.json(updatedInstallment)
     } catch(error) {
@@ -92,6 +98,7 @@ export const getInstallmentsNotPaid = async (req: Request, res: Response) => {
 export const getInstallmentsDueThisMonth = async (req: Request, res: Response) => {
     try {
         const usuarioId = req.params.usuarioId as string
+        await syncInstallments(usuarioId)
         const ahora = new Date()
         const cuotas = await prisma.cuota.findMany({
             where: {
@@ -119,6 +126,7 @@ export const getInstallmentsDueThisMonth = async (req: Request, res: Response) =
 export const getInstallmentsVencidas = async (req: Request, res: Response) => {
     try {
         const usuarioId = req.params.usuarioId as string
+        await syncInstallments(usuarioId)
         const ahora = new Date()
         const cuotas = await prisma.cuota.findMany({
             where: {

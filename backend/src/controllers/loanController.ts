@@ -1,5 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../lib/prisma"
+import { syncInstallments } from "../services/installmentService"
 
 // CREAR PRESTAMO
 export const createLoan = async (req: Request, res: Response) => {
@@ -21,11 +22,14 @@ export const getLoanById = async (req: Request, res: Response) => {
   try {
     const id = req.params.id as string
 
+    const dueno = await prisma.prestamo.findUnique({ where: { id }, select: { usuarioId: true } })
+    if (dueno) await syncInstallments(dueno.usuarioId)
+
     const prestamo = await prisma.prestamo.findUnique({
       where: { id },
       include: {
         deudor: true,    // datos del deudor
-        cuotas: true,    // sus cuotas
+        cuotas: { orderBy: { fechaVencimiento: "asc" } },    // sus cuotas, de la más vieja a la más nueva
         documentos: true // sus documentos
       }
     })
@@ -75,6 +79,7 @@ export const getAllLoans = async (req: Request, res: Response) => {
   try {
     const { usuarioId } = req.params
     const usuarioIdStrg = String(usuarioId)
+    await syncInstallments(usuarioIdStrg)
 
     const deudores = await prisma.prestamo.findMany({
       where: { usuarioId: usuarioIdStrg },
@@ -96,13 +101,15 @@ export const getActiveLoans = async (req: Request, res: Response) => {
     try {
     const { usuarioId } = req.params
     const usuarioIdStrg = String(usuarioId)
+    await syncInstallments(usuarioIdStrg)
 
     const prestamos = await prisma.prestamo.findMany({
-      where: { 
-        usuarioId: usuarioIdStrg, 
+      where: {
+        usuarioId: usuarioIdStrg,
         estado: "activo"
       },include: {
         deudor: true,
+        cuotas: true, // la app las usa para el badge de cuotas vencidas
       }
     })
     res.json(prestamos)

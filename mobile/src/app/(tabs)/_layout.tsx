@@ -8,21 +8,21 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: "Inicio",
-          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="home" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="prestamos"
         options={{
           title: "Préstamos",
-          tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="cash" color={color as string} size={size} />,
         }}
       />
       <Tabs.Screen
         name="deudores"
         options={{
           title: "Deudores",
-          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <Ionicons name="people" color={color as string} size={size} />,
         }}
       />
     </Tabs>

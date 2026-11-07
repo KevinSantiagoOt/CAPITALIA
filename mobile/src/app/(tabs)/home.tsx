@@ -11,8 +11,7 @@ import {
 import * as SecureStore from "expo-secure-store";
 import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const BASE_URL = "http://192.168.100.25:3000";
+import { api } from "@/services/api";
 
 type CuotaVencida = {
   id: string;
@@ -57,18 +56,12 @@ export default function HomeScreen() {
     try {
       const userId = await SecureStore.getItemAsync("userId");
       const name = await SecureStore.getItemAsync("userName");
-      const token = await SecureStore.getItemAsync("userToken");
       if (name) setUserName(name);
 
-      const headers = { Authorization: `Bearer ${token}` };
-
-      const [resVencidas, resProximas] = await Promise.all([
-        fetch(`${BASE_URL}/api/cuotas/prestamo/${userId}/vencidas`, { headers }),
-        fetch(`${BASE_URL}/api/cuotas/prestamo/${userId}/vencenpronto`, { headers }),
+      const [dataVencidas, dataProximas] = await Promise.all([
+        api<CuotaVencida[]>(`/api/cuotas/prestamo/${userId}/vencidas`),
+        api<CuotaProxima[]>(`/api/cuotas/prestamo/${userId}/vencenpronto`),
       ]);
-
-      const dataVencidas = await resVencidas.json();
-      const dataProximas = await resProximas.json();
 
       setVencidas(dataVencidas);
       setProximas(dataProximas);

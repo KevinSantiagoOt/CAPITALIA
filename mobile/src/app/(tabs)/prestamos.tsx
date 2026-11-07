@@ -10,8 +10,7 @@ import {
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
 import {router} from "expo-router";
-
-const BASE_URL = "http://192.168.100.25:3000";
+import { api } from "@/services/api";
 
 type Cuota = {
   id: string;
@@ -42,18 +41,13 @@ export default function PrestamosScreen() {
   const cargarPrestamos = useCallback(async () => {
     try {
       const userId = await SecureStore.getItemAsync("userId");
-      const token = await SecureStore.getItemAsync("userToken");
 
       const endpoint =
         filtro === "activos"
-          ? `${BASE_URL}/api/prestamosactivos/usuario/${userId}`
-          : `${BASE_URL}/api/prestamos/usuario/${userId}`;
+          ? `/api/prestamosactivos/usuario/${userId}`
+          : `/api/prestamos/usuario/${userId}`;
 
-      const response = await fetch(endpoint, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await response.json();
+      const data = await api<Prestamo[]>(endpoint);
       setPrestamos(data);
     } catch (error) {
       console.log("Error cargando préstamos:", error);

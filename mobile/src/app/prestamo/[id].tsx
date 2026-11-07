@@ -9,10 +9,8 @@ import {
   Alert,
 } from "react-native";
 import { useLocalSearchParams, Stack } from "expo-router";
-import * as SecureStore from "expo-secure-store";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const BASE_URL = "http://192.168.100.25:3000";
+import { api } from "@/services/api";
 
 type Cuota = {
   id: string;
@@ -44,11 +42,7 @@ export default function DetallePrestamoScreen() {
 
   const cargarPrestamo = useCallback(async () => {
     try {
-      const token = await SecureStore.getItemAsync("userToken");
-      const response = await fetch(`${BASE_URL}/api/prestamos/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await response.json();
+      const data = await api<PrestamoDetalle>(`/api/prestamos/${id}`);
       setPrestamo(data);
     } catch (error) {
       console.log("Error cargando préstamo:", error);
@@ -65,20 +59,10 @@ export default function DetallePrestamoScreen() {
   const marcarComoPagada = async (cuotaId: string, fechaVencimiento: string) => {
   setActualizandoCuota(cuotaId);
   try {
-    const token = await SecureStore.getItemAsync("userToken");
-    const response = await fetch(`${BASE_URL}/api/cuotas/${cuotaId}`, {
+    await api(`/api/cuotas/${cuotaId}`, {
       method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        fechaVencimiento,
-        pagado: true,
-      }),
+      body: { fechaVencimiento, pagado: true },
     });
-
-    if (!response.ok) throw new Error("No se pudo actualizar la cuota");
 
     await cargarPrestamo();
   } catch (error) {
