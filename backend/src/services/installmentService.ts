@@ -57,8 +57,9 @@ const sincronizarPrestamo = async (prestamo: {
 }
 
 const sincronizar = async (usuarioId: string) => {
+    // Si ya devolvió el capital no se generan más cuotas, aunque siga activo por cuotas pendientes
     const prestamos = await prisma.prestamo.findMany({
-        where: { usuarioId, estado: "activo" }
+        where: { usuarioId, estado: "activo", capitalDevuelto: null }
     })
     for (const prestamo of prestamos) {
         await sincronizarPrestamo(prestamo)
@@ -68,6 +69,19 @@ const sincronizar = async (usuarioId: string) => {
 // Si llegan dos peticiones a la vez (el dashboard pide vencidas y del mes en paralelo),
 // la segunda espera a la primera en vez de crear las mismas cuotas dos veces
 const enCurso = new Map<string, Promise<void>>()
+
+// ACTUALIZA EL ESTADO DE UN PRESTAMO CON EL CAPITAL YA DEVUELTO
+// Queda "pagado" cuando no le quedan cuotas sin pagar; vuelve a "activo" si se desmarca una
+export const actualizarEstadoPorCuotas = async (prestamoId: string) => {
+    const prestamo = await prisma.prestamo.findUnique({ where: { id: prestamoId } })
+    if (!prestamo || !prestamo.capitalDevuelto) return
+
+    const sinPagar = await prisma.cuota.count({ where: { prestamoId, pagado: false } })
+    const estado = sinPagar === 0 ? "pagado" : "activo"
+    if (prestamo.estado !== estado) {
+        await prisma.prestamo.update({ where: { id: prestamoId }, data: { estado } })
+    }
+}
 
 // GENERA LAS CUOTAS PENDIENTES DE TODOS LOS PRESTAMOS ACTIVOS DE UN USUARIO
 export const syncInstallments = (usuarioId: string) => {

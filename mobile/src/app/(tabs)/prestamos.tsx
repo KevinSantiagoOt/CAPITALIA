@@ -28,6 +28,7 @@ type Prestamo = {
   fechaInicio: string;
   fechaFinPlazo: string | null;
   estado: string;
+  capitalDevuelto: string | null;
   deudor: {
     nombre: string;
     telefono: string | null;
@@ -126,9 +127,16 @@ export default function PrestamosScreen() {
         <Text style={styles.total}>
           Capital {formatearMonto(Number(item.montoCapital))}
         </Text>
-        <Text style={styles.detalle}>
-          Interés {item.tasaInteres}% · {formatearMonto(interesMensual)} al mes
-        </Text>
+        {item.capitalDevuelto ? (
+          <Text style={styles.devuelto}>
+            Capital devuelto el {formatearFecha(item.capitalDevuelto)}
+            {activo ? " · debe cuotas pendientes" : ""}
+          </Text>
+        ) : (
+          <Text style={styles.detalle}>
+            Interés {item.tasaInteres}% · {formatearMonto(interesMensual)} al mes
+          </Text>
+        )}
       </TouchableOpacity>
     );
   };
@@ -235,5 +243,6 @@ const styles = StyleSheet.create({
   badgeTextCerrado: { color: "#4b5563" },
   detalle: { color: "#666", fontSize: 13, marginTop: 2 },
   total: { fontSize: 18, fontWeight: "bold", color: "#1f2937", marginTop: 8 },
+  devuelto: { color: "#b45309", fontSize: 13, marginTop: 2 },
   vacio: { textAlign: "center", marginTop: 40, color: "#999" },
 });

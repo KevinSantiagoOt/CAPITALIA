@@ -19,6 +19,7 @@ type PrestamoResumen = {
   id: string;
   montoCapital: string;
   estado: string;
+  capitalDevuelto: string | null;
 };
 
 type Deudor = {
@@ -74,7 +75,10 @@ export default function DeudoresScreen() {
   const renderDeudor = ({ item }: { item: Deudor }) => {
     // Solo cuentan los préstamos activos: los pagados ya no son deuda
     const prestamosActivos = item.prestamos.filter((p) => p.estado === "activo");
-    const capitalPendiente = prestamosActivos.reduce((sum, p) => sum + Number(p.montoCapital), 0);
+    // Si ya devolvió el capital, ese préstamo solo debe cuotas: no suma al capital pendiente
+    const capitalPendiente = prestamosActivos
+      .filter((p) => !p.capitalDevuelto)
+      .reduce((sum, p) => sum + Number(p.montoCapital), 0);
     const conDeuda = prestamosActivos.length > 0;
 
     return (
@@ -92,7 +96,9 @@ export default function DeudoresScreen() {
         </View>
         <Text style={styles.detalle}>Cédula: {item.cedula}</Text>
         {item.telefono && <Text style={styles.detalle}>Tel: {item.telefono}</Text>}
-        {conDeuda ? (
+        {conDeuda && capitalPendiente === 0 ? (
+          <Text style={styles.total}>Debe cuotas pendientes</Text>
+        ) : conDeuda ? (
           <Text style={styles.total}>
             Debe {formatearMonto(capitalPendiente)}
             <Text style={styles.totalDetalle}>

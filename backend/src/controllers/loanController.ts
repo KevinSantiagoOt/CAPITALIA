@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../lib/prisma"
-import { syncInstallments } from "../services/installmentService"
+import { syncInstallments, actualizarEstadoPorCuotas } from "../services/installmentService"
 
 // CREAR PRESTAMO
 export const createLoan = async (req: Request, res: Response) => {
@@ -90,6 +90,50 @@ export const updateLoan = async (req: Request, res: Response) => {
         res.json(updatedLoan)
     } catch(error) {
         res.status(404).json({ message: "No se encontro el préstamo" })
+    }
+}
+
+// CERRAR PRESTAMO (EL DEUDOR DEVOLVIO EL CAPITAL)
+// Body: { conservarPendientes: boolean }
+// - Las cuotas futuras sin pagar se borran: sin capital ya no se cobra interés
+// - Las vencidas sin pagar se conservan como deuda (el préstamo sigue activo hasta pagarlas)
+//   o se borran (el préstamo queda pagado de una vez)
+export const closeLoan = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = res.locals.usuarioId as string
+        const id = String(req.params.id)
+        const conservarPendientes = req.body.conservarPendientes === true
+
+        // Primero se crean las cuotas que falten, para no cerrar sin cobrar un mes ya vencido
+        await syncInstallments(usuarioId)
+
+        const prestamo = await prisma.prestamo.findFirst({ where: { id, usuarioId } })
+        if (!prestamo) {
+            return res.status(404).json({ message: "Préstamo no encontrado" })
+        }
+        if (prestamo.estado !== "activo" || prestamo.capitalDevuelto) {
+            return res.status(409).json({ message: "Este préstamo ya está cerrado o su capital ya fue devuelto" })
+        }
+
+        const hoy = new Date()
+        const hoyUTC = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()))
+
+        await prisma.$transaction(async (tx) => {
+            await tx.cuota.deleteMany({ where: { prestamoId: id, pagado: false, fechaVencimiento: { gt: hoyUTC } } })
+            if (!conservarPendientes) {
+                await tx.cuota.deleteMany({ where: { prestamoId: id, pagado: false } })
+            }
+            await tx.prestamo.update({ where: { id }, data: { capitalDevuelto: hoyUTC } })
+        })
+
+        // Sin cuotas pendientes queda "pagado"; con pendientes conservadas sigue "activo"
+        await actualizarEstadoPorCuotas(id)
+
+        const actualizado = await prisma.prestamo.findUnique({ where: { id } })
+        res.json(actualizado)
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: "Error en el servidor" })
     }
 }
 

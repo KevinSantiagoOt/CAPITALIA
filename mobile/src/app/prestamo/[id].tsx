@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useLocalSearchParams, Stack } from "expo-router";
+import { useLocalSearchParams, Stack, router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
 
@@ -26,10 +26,11 @@ type PrestamoDetalle = {
   tasaInteres: string;
   fechaInicio: string;
   estado: string;
+  capitalDevuelto: string | null; // fecha en que devolvió el capital
   deudor: {
     nombre: string;
-    telefono: string;
-    direccion: string;
+    telefono: string | null;
+    direccion: string | null;
   };
   cuotas: Cuota[];
 };
@@ -72,6 +73,105 @@ export default function DetallePrestamoScreen() {
   }
 };
 
+  // CERRAR: el deudor devolvió el capital
+  const cerrar = () => {
+    if (!prestamo) return;
+
+    const hoy = new Date();
+    const vencidas = prestamo.cuotas.filter((c) => !c.pagado && new Date(c.fechaVencimiento) <= hoy);
+    const futuras = prestamo.cuotas.filter((c) => !c.pagado && new Date(c.fechaVencimiento) > hoy).length;
+    const totalVencidas = vencidas.reduce((sum, c) => sum + Number(c.montoInteres), 0);
+    // Sin vencidas: "Sus 3 cuotas futuras se eliminarán."
+    // Con vencidas: "Su próxima cuota se eliminará." / "Sus próximas cuotas se eliminarán."
+    let avisoFuturas = "";
+    if (futuras > 0 && vencidas.length === 0) {
+      avisoFuturas =
+        futuras === 1
+          ? "\n\nSu cuota futura se eliminará."
+          : `\n\nSus ${futuras} cuotas futuras se eliminarán.`;
+    } else if (futuras > 0) {
+      avisoFuturas =
+        futuras === 1 ? "\n\nSu próxima cuota se eliminará." : "\n\nSus próximas cuotas se eliminarán.";
+    }
+
+    const enviar = async (conservarPendientes: boolean) => {
+      try {
+        const resultado = await api<{ estado: string }>(`/api/prestamos/${prestamo.id}/cerrar`, {
+          method: "POST",
+          body: { conservarPendientes },
+        });
+        if (resultado.estado === "pagado") {
+          Alert.alert("Préstamo cerrado", "El préstamo quedó pagado.");
+        } else {
+          Alert.alert(
+            "Capital devuelto",
+            "El préstamo sigue activo hasta que pague las cuotas pendientes. Al pagar la última se cierra solo."
+          );
+        }
+        await cargarPrestamo();
+      } catch (error) {
+        Alert.alert("Error", error instanceof Error ? error.message : "No se pudo cerrar el préstamo");
+      }
+    };
+
+    // Sin cuotas vencidas: solo confirmar
+    if (vencidas.length === 0) {
+      Alert.alert(
+        "Cerrar préstamo",
+        `¿Confirmas que ${prestamo.deudor.nombre} devolvió el capital de ${formatearMonto(prestamo.montoCapital)}?${avisoFuturas}`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Cerrar préstamo", onPress: () => enviar(false) },
+        ]
+      );
+      return;
+    }
+
+    // Con cuotas vencidas: preguntar si se conservan como deuda o se eliminan
+    Alert.alert(
+      "Tiene cuotas pendientes",
+      `${prestamo.deudor.nombre} tiene ${vencidas.length} cuota${vencidas.length > 1 ? "s" : ""} vencida${vencidas.length > 1 ? "s" : ""} sin pagar por ${formatearMonto(String(totalVencidas))}.\n\n¿Quieres conservarlas como deuda o eliminarlas?${avisoFuturas}`,
+      [
+        { text: "Conservar como deuda", onPress: () => enviar(true) },
+        { text: "Eliminarlas", style: "destructive", onPress: () => enviar(false) },
+        { text: "Cancelar", style: "cancel" },
+      ]
+    );
+  };
+
+  // ELIMINAR: pensado para préstamos registrados por error. Borra también todas sus cuotas
+  const eliminar = () => {
+    if (!prestamo) return;
+
+    const pagadas = prestamo.cuotas.filter((c) => c.pagado).length;
+    const avisoPagadas =
+      pagadas > 0
+        ? ` Ya tiene ${pagadas} cuota${pagadas > 1 ? "s" : ""} pagada${pagadas > 1 ? "s" : ""}: ese registro también se perderá.`
+        : "";
+
+    Alert.alert(
+      "Eliminar préstamo",
+      `¿Seguro que quieres eliminar el préstamo de ${formatearMonto(prestamo.montoCapital)} a ${prestamo.deudor.nombre}?\n\nSe borrarán sus ${prestamo.cuotas.length} cuotas.${avisoPagadas}`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Eliminar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await api(`/api/prestamos/${prestamo.id}`, { method: "DELETE" });
+              Alert.alert("Préstamo eliminado", "El préstamo y sus cuotas fueron eliminados.", [
+                { text: "OK", onPress: () => router.back() },
+              ]);
+            } catch (error) {
+              Alert.alert("Error", error instanceof Error ? error.message : "No se pudo eliminar");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const formatearMonto = (monto: string) => `$${Number(monto).toLocaleString("es-CO")}`;
 
   const formatearFecha = (fecha: string) => {
@@ -109,10 +209,40 @@ export default function DetallePrestamoScreen() {
 
       {/* Info del préstamo */}
       <View style={[styles.infoCard]}>
+        <Text style={styles.deudorNombre}>{prestamo.deudor.nombre}</Text>
         <Text style={styles.monto}>{formatearMonto(prestamo.montoCapital)}</Text>
         <Text style={styles.subInfo}>Interés: {prestamo.tasaInteres}%</Text>
         <Text style={styles.subInfo}>Inicio: {formatearFecha(prestamo.fechaInicio)}</Text>
-        <Text style={styles.subInfo}>Tel: {prestamo.deudor.telefono}</Text>
+        {prestamo.deudor.telefono && <Text style={styles.subInfo}>Tel: {prestamo.deudor.telefono}</Text>}
+
+        {/* Estado del cierre */}
+        {prestamo.estado !== "activo" && (
+          <View style={[styles.aviso, styles.avisoCerrado]}>
+            <Text style={styles.avisoCerradoTexto}>
+              Préstamo cerrado
+              {prestamo.capitalDevuelto ? ` · capital devuelto el ${formatearFecha(prestamo.capitalDevuelto)}` : ""}
+            </Text>
+          </View>
+        )}
+        {prestamo.estado === "activo" && prestamo.capitalDevuelto && (
+          <View style={[styles.aviso, styles.avisoPendiente]}>
+            <Text style={styles.avisoPendienteTexto}>
+              Capital devuelto el {formatearFecha(prestamo.capitalDevuelto)}. Sigue activo hasta que pague las cuotas
+              pendientes.
+            </Text>
+          </View>
+        )}
+
+        <View style={styles.acciones}>
+          {prestamo.estado === "activo" && !prestamo.capitalDevuelto && (
+            <TouchableOpacity style={styles.botonCerrar} onPress={cerrar}>
+              <Text style={styles.botonCerrarTexto}>Cerrar préstamo</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.botonEliminar} onPress={eliminar}>
+            <Text style={styles.botonEliminarTexto}>Eliminar</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Text style={styles.seccionTitulo}>Cuotas</Text>
@@ -168,7 +298,30 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: 12,
   },
+  deudorNombre: { fontSize: 16, fontWeight: "600", color: "#333", marginBottom: 2 },
   monto: { fontSize: 26, fontWeight: "bold", color: "#2563eb", marginBottom: 8 },
+  acciones: { flexDirection: "row", gap: 10, marginTop: 14 },
+  botonCerrar: {
+    flex: 2,
+    backgroundColor: "#dcfce7",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  botonCerrarTexto: { color: "#16a34a", fontWeight: "600" },
+  botonEliminar: {
+    flex: 1,
+    backgroundColor: "#fee2e2",
+    padding: 10,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  botonEliminarTexto: { color: "#dc2626", fontWeight: "600" },
+  aviso: { borderRadius: 8, padding: 10, marginTop: 12 },
+  avisoCerrado: { backgroundColor: "#f3f4f6" },
+  avisoCerradoTexto: { color: "#4b5563", fontWeight: "600" },
+  avisoPendiente: { backgroundColor: "#fef3c7" },
+  avisoPendienteTexto: { color: "#b45309" },
   subInfo: { fontSize: 14, color: "#666", marginTop: 2 },
   seccionTitulo: { fontSize: 16, fontWeight: "bold", marginLeft: 16, marginTop: 4 },
   vacio: { textAlign: "center", color: "#999", marginTop: 20 },

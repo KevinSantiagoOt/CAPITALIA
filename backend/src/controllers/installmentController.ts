@@ -1,6 +1,6 @@
 import { Request, Response } from "express"
 import prisma from "../lib/prisma"
-import { syncInstallments } from "../services/installmentService"
+import { syncInstallments, actualizarEstadoPorCuotas } from "../services/installmentService"
 
 // CREAR LA CUOTA
 export const createInstallment = async (req: Request, res: Response) => {
@@ -61,6 +61,10 @@ export const updateInstallment = async (req: Request, res: Response) => {
             where: { id: idStrg },
             data: { pagado, fechaPago: fechaPagoFinal }
         })
+
+        // Si ya devolvió el capital, al pagar la última cuota pendiente el préstamo se cierra solo
+        await actualizarEstadoPorCuotas(updatedInstallment.prestamoId)
+
         res.json(updatedInstallment)
     } catch(error) {
         res.status(404).json({ message: "No se encontro la cuota" })

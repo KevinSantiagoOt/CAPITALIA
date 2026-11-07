@@ -41,6 +41,7 @@ model Prestamo {
   fechaInicio   DateTime    @map("fecha_inicio") @db.Date
   fechaFinPlazo DateTime?   @map("fecha_fin_plazo") @db.Date
   estado        String?     @default("activo") @db.VarChar(20)
+  capitalDevuelto DateTime? @map("capital_devuelto") @db.Date
   deudorId      String      @map("deudor_id") @db.Uuid
   usuarioId     String      @map("usuario_id") @db.Uuid
   createdAt     DateTime?   @default(now()) @map("created_at") @db.Timestamp(6)
