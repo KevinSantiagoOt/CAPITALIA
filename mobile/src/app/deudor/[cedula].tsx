@@ -1,16 +1,22 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
-  FlatList,
+  ScrollView,
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
   Alert,
 } from "react-native";
-import { useLocalSearchParams, router, Stack, useFocusEffect } from "expo-router";
+import { useLocalSearchParams, router, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
+import { useTema } from "@/theme/tema";
+import { Colores } from "@/theme/colores";
+import { useBarraClara } from "@/theme/barra-estado";
+import { numerosMontos } from "@/theme/fuentes";
+import { iniciales } from "@/utils/texto";
 
 type Prestamo = {
   id: string;
@@ -32,6 +38,10 @@ type DeudorDetalle = {
 };
 
 export default function DetalleDeudorScreen() {
+  const { colores } = useTema();
+  const styles = useMemo(() => crearEstilos(colores), [colores]);
+  useBarraClara();
+
   const { cedula } = useLocalSearchParams<{ cedula: string }>();
   const [deudor, setDeudor] = useState<DeudorDetalle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -159,34 +169,71 @@ export default function DetalleDeudorScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centrado}>
-        <ActivityIndicator size="large" />
-      </View>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <ActivityIndicator size="large" color={colores.sobreBanda} style={{ marginTop: 40 }} />
+      </SafeAreaView>
     );
   }
 
   if (!deudor) {
     return (
-      <View style={styles.centrado}>
-        <Text>No se encontró el deudor</Text>
-      </View>
+      <SafeAreaView style={styles.container} edges={["top"]}>
+        <View style={styles.banda}>
+          <TouchableOpacity style={styles.atras} onPress={() => router.back()} hitSlop={12}>
+            <Ionicons name="arrow-back" size={24} color={colores.sobreBanda} />
+          </TouchableOpacity>
+        </View>
+        <View style={[styles.hoja, styles.centrado]}>
+          <Text style={{ color: colores.texto }}>No se encontró el deudor</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <Stack.Screen options={{ title: deudor.nombre, headerBackTitle: "Deudores" }} />
+      {/* Fondo de la hoja en la mitad de abajo: al estirar la lista hacia arriba no asoma la banda negra */}
+      <View style={styles.fondoInferior} />
 
-      <View style={styles.infoCard}>
-        <Text style={styles.nombre}>{deudor.nombre}</Text>
-        {deudor.archivado && (
-          <View style={styles.badgeArchivado}>
-            <Text style={styles.badgeArchivadoTexto}>Archivado</Text>
+      {/* Banda oscura: flecha para volver y título */}
+      <View style={styles.banda}>
+        <TouchableOpacity style={styles.atras} onPress={() => router.back()} hitSlop={12}>
+          <Ionicons name="arrow-back" size={24} color={colores.sobreBanda} />
+        </TouchableOpacity>
+        <Text style={styles.titulo}>Deudor</Text>
+      </View>
+
+      <ScrollView style={styles.hoja} contentContainerStyle={styles.hojaContenido}>
+        {/* Encabezado: círculo con iniciales y nombre */}
+        <View style={styles.perfil}>
+          <View style={styles.avatar}>
+            <Text style={styles.avatarTexto}>{iniciales(deudor.nombre)}</Text>
           </View>
-        )}
-        <Text style={styles.subInfo}>Cédula: {deudor.cedula}</Text>
-        {deudor.telefono && <Text style={styles.subInfo}>Tel: {deudor.telefono}</Text>}
-        {deudor.direccion && <Text style={styles.subInfo}>{deudor.direccion}</Text>}
+          <Text style={styles.nombre}>{deudor.nombre}</Text>
+          {deudor.archivado && (
+            <View style={styles.badgeArchivado}>
+              <Text style={styles.badgeArchivadoTexto}>Archivado</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Datos del deudor */}
+        <View style={styles.datos}>
+          <View style={styles.dato}>
+            <Text style={styles.datoLabel}>Cédula</Text>
+            <Text style={styles.datoValor}>{deudor.cedula}</Text>
+          </View>
+          <View style={styles.dato}>
+            <Text style={styles.datoLabel}>Teléfono</Text>
+            <Text style={styles.datoValor}>{deudor.telefono || "Sin teléfono"}</Text>
+          </View>
+          {deudor.direccion && (
+            <View style={[styles.dato, styles.datoCompleto]}>
+              <Text style={styles.datoLabel}>Dirección</Text>
+              <Text style={styles.datoValor}>{deudor.direccion}</Text>
+            </View>
+          )}
+        </View>
 
         <View style={styles.acciones}>
           <TouchableOpacity
@@ -196,19 +243,47 @@ export default function DetalleDeudorScreen() {
             <Text style={styles.botonEditarTexto}>Editar</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.botonArchivar} onPress={cambiarArchivado}>
-            <Text style={styles.botonArchivarTexto}>
-              {deudor.archivado ? "Desarchivar" : "Archivar"}
-            </Text>
+            <Text style={styles.botonArchivarTexto}>{deudor.archivado ? "Desarchivar" : "Archivar"}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.botonEliminar} onPress={eliminar}>
             <Text style={styles.botonEliminarTexto}>Eliminar</Text>
           </TouchableOpacity>
         </View>
-      </View>
 
-      <View style={styles.seccionFila}>
         <Text style={styles.seccionTitulo}>Préstamos</Text>
+
+        {deudor.prestamos.length === 0 && <Text style={styles.vacio}>Sin préstamos registrados</Text>}
+
+        {deudor.prestamos.map((item) => {
+          const activo = item.estado === "activo";
+          const interesMensual = (Number(item.montoCapital) * Number(item.tasaInteres)) / 100;
+          return (
+            <TouchableOpacity
+              key={item.id}
+              style={styles.prestamoCard}
+              onPress={() => router.push(`/prestamo/${item.id}`)}
+            >
+              <View style={styles.prestamoFila}>
+                <Text style={styles.monto}>{formatearMonto(item.montoCapital)}</Text>
+                <View style={[styles.badge, activo ? styles.badgeActivo : styles.badgeCerrado]}>
+                  <Text style={[styles.badgeTexto, activo ? styles.badgeTextoActivo : styles.badgeTextoCerrado]}>
+                    {item.estado.charAt(0).toUpperCase() + item.estado.slice(1)}
+                  </Text>
+                </View>
+              </View>
+              <Text style={styles.detalle}>
+                Interés {item.tasaInteres}% · {formatearMonto(String(interesMensual))} al mes
+              </Text>
+              <Text style={styles.fechas}>
+                Desde {formatearFecha(item.fechaInicio)}
+                {item.fechaFinPlazo ? ` hasta ${formatearFecha(item.fechaFinPlazo)}` : " · Sin fecha fin"}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+
         <TouchableOpacity
+          style={styles.botonNuevo}
           onPress={() =>
             router.push({
               pathname: "/prestamo/nuevo",
@@ -216,88 +291,122 @@ export default function DetalleDeudorScreen() {
             })
           }
         >
-          <Text style={styles.nuevoPrestamo}>+ Nuevo préstamo</Text>
+          <Ionicons name="add" size={22} color={colores.texto} />
+          <Text style={styles.botonNuevoTexto}>Nuevo préstamo</Text>
         </TouchableOpacity>
-      </View>
-
-      <FlatList
-        data={deudor.prestamos}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={{ padding: 12 }}
-        ListEmptyComponent={<Text style={styles.vacio}>Sin préstamos registrados</Text>}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.prestamoCard}
-            onPress={() => router.push(`/prestamo/${item.id}`)}
-          >
-            <Text style={styles.monto}>{formatearMonto(item.montoCapital)}</Text>
-            <Text style={styles.detalle}>Interés: {item.tasaInteres}%</Text>
-            <Text style={styles.detalle}>
-              Desde {formatearFecha(item.fechaInicio)}
-              {item.fechaFinPlazo ? ` hasta ${formatearFecha(item.fechaFinPlazo)}` : " · Sin fecha fin"}
-            </Text>
-            <Text style={[styles.estado, item.estado === "activo" && styles.estadoActivo]}>
-              {item.estado}
-            </Text>
-          </TouchableOpacity>
-        )}
-      />
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  centrado: { flex: 1, justifyContent: "center", alignItems: "center" },
-  infoCard: { backgroundColor: "#fff", margin: 12, padding: 16, borderRadius: 12 },
-  nombre: { fontSize: 20, fontWeight: "bold", marginBottom: 6 },
-  subInfo: { fontSize: 14, color: "#666", marginTop: 2 },
-  acciones: { flexDirection: "row", gap: 10, marginTop: 14 },
-  botonEditar: {
-    flex: 1,
-    backgroundColor: "#dbeafe",
-    padding: 10,
-    borderRadius: 8,
+const crearEstilos = (c: Colores) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: c.banda },
+  centrado: { justifyContent: "center", alignItems: "center" },
+  fondoInferior: { position: "absolute", left: 0, right: 0, bottom: 0, height: "50%", backgroundColor: c.hoja },
+
+  // BANDA OSCURA
+  banda: {
     alignItems: "center",
+    justifyContent: "center",
+    paddingTop: 12,
+    paddingBottom: 34,
+    paddingHorizontal: 56, // espacio para la flecha
+    minHeight: 70,
   },
-  botonEditarTexto: { color: "#2563eb", fontWeight: "600" },
-  botonArchivar: {
+  atras: { position: "absolute", left: 16, top: 10 },
+  titulo: { fontSize: 17, fontWeight: "bold", color: c.sobreBanda },
+
+  // HOJA
+  hoja: {
     flex: 1,
-    backgroundColor: "#f3f4f6",
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
+    backgroundColor: c.hoja,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    marginTop: -20,
   },
-  botonArchivarTexto: { color: "#4b5563", fontWeight: "600" },
+  hojaContenido: { padding: 16, paddingBottom: 40 },
+
+  // PERFIL
+  perfil: { alignItems: "center", marginTop: 8 },
+  avatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: c.destacada,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarTexto: { fontSize: 26, fontWeight: "bold", color: c.sobreBanda },
+  nombre: { fontSize: 22, fontWeight: "bold", color: c.texto, marginTop: 12, textAlign: "center" },
   badgeArchivado: {
-    alignSelf: "flex-start",
-    backgroundColor: "#f3f4f6",
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 4,
-  },
-  badgeArchivadoTexto: { color: "#4b5563", fontSize: 12, fontWeight: "600" },
-  botonEliminar: {
-    flex: 1,
-    backgroundColor: "#fee2e2",
-    padding: 10,
+    backgroundColor: c.neutroSuave,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 8,
-    alignItems: "center",
+    marginTop: 6,
   },
-  botonEliminarTexto: { color: "#dc2626", fontWeight: "600" },
-  seccionTitulo: { fontSize: 16, fontWeight: "bold", marginLeft: 16, marginTop: 4 },
-  seccionFila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginRight: 16 },
-  nuevoPrestamo: { color: "#2563eb", fontWeight: "600", fontSize: 14, marginTop: 4 },
-  vacio: { textAlign: "center", color: "#999", marginTop: 20 },
-  prestamoCard: {
-    backgroundColor: "#fff",
+  badgeArchivadoTexto: { color: c.neutro, fontSize: 12, fontWeight: "600" },
+
+  // DATOS
+  datos: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 20,
+    backgroundColor: c.tarjeta,
+    borderWidth: 1,
+    borderColor: c.separador,
+    borderRadius: 16,
     padding: 14,
-    borderRadius: 10,
+  },
+  dato: { flexGrow: 1, minWidth: "40%" },
+  datoCompleto: { minWidth: "100%" },
+  datoLabel: { fontSize: 12, color: c.textoTenue },
+  datoValor: { fontSize: 14, fontWeight: "600", color: c.texto, marginTop: 2 },
+
+  // BOTONES
+  acciones: { flexDirection: "row", gap: 10, marginTop: 16, marginBottom: 20 },
+  botonEditar: { flex: 1, backgroundColor: c.primarioSuave, padding: 12, borderRadius: 12, alignItems: "center" },
+  botonEditarTexto: { color: c.primario, fontWeight: "600" },
+  botonArchivar: { flex: 1, backgroundColor: c.neutroSuave, padding: 12, borderRadius: 12, alignItems: "center" },
+  botonArchivarTexto: { color: c.neutro, fontWeight: "600" },
+  botonEliminar: { flex: 1, backgroundColor: c.peligroSuave, padding: 12, borderRadius: 12, alignItems: "center" },
+  botonEliminarTexto: { color: c.peligro, fontWeight: "600" },
+
+  // PRESTAMOS
+  seccionTitulo: { fontSize: 18, fontWeight: "bold", color: c.texto, marginBottom: 10 },
+  vacio: { textAlign: "center", color: c.textoTenue, marginVertical: 16 },
+  prestamoCard: {
+    backgroundColor: c.tarjeta,
+    borderWidth: 1,
+    borderColor: c.separador,
+    padding: 16,
+    borderRadius: 16,
     marginBottom: 10,
   },
-  monto: { fontSize: 18, fontWeight: "bold", color: "#2563eb" },
-  detalle: { fontSize: 13, color: "#666", marginTop: 2 },
-  estado: { fontSize: 13, fontWeight: "600", color: "#999", marginTop: 4, textTransform: "capitalize" },
-  estadoActivo: { color: "#16a34a" },
+  prestamoFila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  monto: { fontSize: 20, fontWeight: "bold", fontVariant: numerosMontos, color: c.texto },
+  badge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+  badgeTexto: { fontSize: 12, fontWeight: "600" },
+  badgeActivo: { backgroundColor: c.exitoSuave },
+  badgeTextoActivo: { color: c.exito },
+  badgeCerrado: { backgroundColor: c.neutroSuave },
+  badgeTextoCerrado: { color: c.neutro },
+  detalle: { fontSize: 13, color: c.textoSecundario, marginTop: 4 },
+  fechas: { fontSize: 12, color: c.textoTenue, marginTop: 8 },
+
+  // BOTON PUNTEADO "+ NUEVO PRESTAMO"
+  botonNuevo: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderStyle: "dashed",
+    borderColor: c.borde,
+    borderRadius: 16,
+    paddingVertical: 18,
+    marginTop: 4,
+  },
+  botonNuevoTexto: { fontSize: 15, fontWeight: "600", color: c.texto },
 });

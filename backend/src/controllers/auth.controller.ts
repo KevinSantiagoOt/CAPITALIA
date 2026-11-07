@@ -28,7 +28,9 @@ export const register = async (req: Request, res: Response) => {
 // LOGIN
 export const login = async (req: Request, res: Response) => {
   try {
-    const { email, password } = req.body
+    const { password } = req.body
+    // Los correos se guardan en minúsculas (ver profileController)
+    const email = String(req.body.email ?? "").trim().toLowerCase()
 
     const usuario = await prisma.usuario.findUnique({ where: { email } })
     if (!usuario) {

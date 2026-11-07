@@ -156,6 +156,30 @@ export const getInstallmentsDueThisMonth = async (req: Request, res: Response) =
     }
 }
 
+// COBRADO ESTE MES: cuotas pagadas cuya fecha de pago cae en el mes actual
+// (incluye préstamos que ya se cerraron este mes)
+export const getCollectedThisMonth = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = res.locals.usuarioId as string // el :usuarioId de la URL se ignora
+        const ahora = new Date()
+        const inicioMes = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), 1))
+        const inicioMesSiguiente = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth() + 1, 1))
+
+        const resultado = await prisma.cuota.aggregate({
+            where: {
+                prestamo: { usuarioId },
+                pagado: true,
+                fechaPago: { gte: inicioMes, lt: inicioMesSiguiente }
+            },
+            _sum: { montoInteres: true },
+            _count: true
+        })
+        res.json({ total: resultado._sum.montoInteres ?? 0, cuotas: resultado._count })
+    } catch (error) {
+        res.status(500).json({ error: String(error) })
+    }
+}
+
 // VER CUOTAS VENCIDAS
 // El :usuarioId de la URL se ignora; se usa el del token
 export const getInstallmentsVencidas = async (req: Request, res: Response) => {

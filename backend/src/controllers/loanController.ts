@@ -1,7 +1,7 @@
 import { Request, Response } from "express"
 import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
-import { syncInstallments, actualizarEstadoPorCuotas } from "../services/installmentService"
+import { syncInstallments, actualizarEstadoPorCuotas, sumarMeses } from "../services/installmentService"
 import { conEnlaces, borrarArchivosDePrestamos } from "./documentController"
 
 // CREAR PRESTAMO
@@ -180,6 +180,44 @@ export const closeLoan = async (req: Request, res: Response) => {
         await actualizarEstadoPorCuotas(id)
 
         const actualizado = await prisma.prestamo.findUnique({ where: { id } })
+        res.json(actualizado)
+    } catch (error) {
+        console.error(error)
+        res.status(500).json({ error: "Error en el servidor" })
+    }
+}
+
+// EXTENDER EL PLAZO DE UN PRESTAMO CON FECHA FIN
+// Body: { meses: 1 | 3 | 6 } para correr la fecha fin, o { sinFecha: true } para quitarla
+// Cuando el plazo vence y el deudor no devuelve el capital, no se crean cuotas nuevas
+// hasta que el prestamista extienda el plazo o cierre el préstamo (decisión de Kevin)
+export const extendLoan = async (req: Request, res: Response) => {
+    try {
+        const usuarioId = res.locals.usuarioId as string
+        const id = String(req.params.id)
+        const { meses, sinFecha } = req.body
+
+        if (sinFecha !== true && ![1, 3, 6].includes(Number(meses))) {
+            return res.status(400).json({ message: "Indica cuántos meses extender (1, 3 o 6) o quitar la fecha fin" })
+        }
+
+        const prestamo = await prisma.prestamo.findFirst({ where: { id, usuarioId } })
+        if (!prestamo) {
+            return res.status(404).json({ message: "Préstamo no encontrado" })
+        }
+        if (prestamo.estado !== "activo" || prestamo.capitalDevuelto) {
+            return res.status(409).json({ message: "Este préstamo ya está cerrado" })
+        }
+        if (!prestamo.fechaFinPlazo) {
+            return res.status(409).json({ message: "Este préstamo no tiene fecha fin" })
+        }
+
+        const nuevaFin = sinFecha === true ? null : sumarMeses(prestamo.fechaFinPlazo, Number(meses))
+        const actualizado = await prisma.prestamo.update({ where: { id }, data: { fechaFinPlazo: nuevaFin } })
+
+        // Crea las cuotas de los meses nuevos
+        await syncInstallments(usuarioId)
+
         res.json(actualizado)
     } catch (error) {
         console.error(error)

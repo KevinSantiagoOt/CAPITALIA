@@ -3,7 +3,7 @@ import prisma from "../lib/prisma"
 
 // SUMA MESES A UNA FECHA, RESPETANDO MESES MAS CORTOS (31 ENE + 1 MES = 28 FEB)
 // Se usa UTC porque las fechas de la BD son @db.Date (sin hora)
-const sumarMeses = (fecha: Date, meses: number) => {
+export const sumarMeses = (fecha: Date, meses: number) => {
     const anio = fecha.getUTCFullYear()
     const mes = fecha.getUTCMonth() + meses
     const ultimoDiaDelMes = new Date(Date.UTC(anio, mes + 1, 0)).getUTCDate()

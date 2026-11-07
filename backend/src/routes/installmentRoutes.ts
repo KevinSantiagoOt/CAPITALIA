@@ -1,5 +1,5 @@
 import { Router } from 'express'
-import { createInstallment, getInstallmentsByLoanId, updateInstallment, deleteInstallment, getInstallmentsNotPaid, getInstallmentsPaid, getInstallmentsDueThisMonth, getInstallmentsVencidas } from '../controllers/installmentController'
+import { createInstallment, getInstallmentsByLoanId, updateInstallment, deleteInstallment, getInstallmentsNotPaid, getInstallmentsPaid, getInstallmentsDueThisMonth, getInstallmentsVencidas, getCollectedThisMonth } from '../controllers/installmentController'
 
 const router = Router()
 
@@ -12,4 +12,5 @@ router.delete('/cuotas/:id', deleteInstallment)
 router.get('/cuotas/nopagadas/prestamo/:prestamoId/pendientes', getInstallmentsNotPaid)
 router.get('/cuotas/prestamo/:usuarioId/vencenpronto', getInstallmentsDueThisMonth)
 router.get('/cuotas/prestamo/:usuarioId/vencidas', getInstallmentsVencidas)
+router.get('/cuotas/prestamo/:usuarioId/cobradasmes', getCollectedThisMonth)
 export default router

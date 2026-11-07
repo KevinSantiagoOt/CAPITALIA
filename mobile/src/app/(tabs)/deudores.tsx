@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -13,25 +13,29 @@ import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
-
+import Filtro from "@/components/filtro";
+import { useTema } from "@/theme/tema";
+import { Colores } from "@/theme/colores";
+import { useBarraClara } from "@/theme/barra-estado";
+import { iniciales } from "@/utils/texto";
 
 type PrestamoResumen = {
   id: string;
-  montoCapital: string;
   estado: string;
-  capitalDevuelto: string | null;
 };
 
 type Deudor = {
   id: string;
   nombre: string;
   cedula: string;
-  telefono: string | null;
-  direccion: string;
   prestamos: PrestamoResumen[];
 };
 
 export default function DeudoresScreen() {
+  const { colores } = useTema();
+  const styles = useMemo(() => crearEstilos(colores), [colores]);
+  useBarraClara();
+
   const [deudores, setDeudores] = useState<Deudor[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,154 +74,136 @@ export default function DeudoresScreen() {
     cargarDeudores();
   };
 
-  const formatearMonto = (monto: number) => `$${monto.toLocaleString("es-CO")}`;
 
+  // En la lista solo va el nombre y cuántas deudas tiene; el resto está en el detalle
   const renderDeudor = ({ item }: { item: Deudor }) => {
     // Solo cuentan los préstamos activos: los pagados ya no son deuda
-    const prestamosActivos = item.prestamos.filter((p) => p.estado === "activo");
-    // Si ya devolvió el capital, ese préstamo solo debe cuotas: no suma al capital pendiente
-    const capitalPendiente = prestamosActivos
-      .filter((p) => !p.capitalDevuelto)
-      .reduce((sum, p) => sum + Number(p.montoCapital), 0);
-    const conDeuda = prestamosActivos.length > 0;
+    const deudas = item.prestamos.filter((p) => p.estado === "activo").length;
 
     return (
-      <TouchableOpacity
-        style={styles.card}
-        onPress={() => router.push(`/deudor/${item.cedula}`)}
-      >
-        <View style={styles.cardHeader}>
-          <Text style={styles.nombre}>{item.nombre}</Text>
-          <View style={[styles.badge, !conDeuda && styles.badgeAlDia]}>
-            <Text style={[styles.badgeText, !conDeuda && styles.badgeTextAlDia]}>
-              {conDeuda ? "Con deuda" : "Al día"}
-            </Text>
-          </View>
+      <TouchableOpacity style={styles.card} onPress={() => router.push(`/deudor/${item.cedula}`)}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarTexto}>{iniciales(item.nombre)}</Text>
         </View>
-        <Text style={styles.detalle}>Cédula: {item.cedula}</Text>
-        {item.telefono && <Text style={styles.detalle}>Tel: {item.telefono}</Text>}
-        {conDeuda && capitalPendiente === 0 ? (
-          <Text style={styles.total}>Debe cuotas pendientes</Text>
-        ) : conDeuda ? (
-          <Text style={styles.total}>
-            Debe {formatearMonto(capitalPendiente)}
-            <Text style={styles.totalDetalle}>
-              {"  "}en {prestamosActivos.length} préstamo{prestamosActivos.length > 1 ? "s" : ""}
-            </Text>
+        <Text style={styles.nombre} numberOfLines={1}>
+          {item.nombre}
+        </Text>
+        <View style={[styles.badge, deudas === 0 && styles.badgeAlDia]}>
+          <Text style={[styles.badgeText, deudas === 0 && styles.badgeTextAlDia]}>
+            {deudas === 0 ? "Sin deudas" : `${deudas} deuda${deudas > 1 ? "s" : ""}`}
           </Text>
-        ) : (
-          <Text style={styles.sinDeuda}>Sin deudas pendientes</Text>
-        )}
+        </View>
+        <Ionicons name="chevron-forward" size={18} color={colores.iconoTenue} />
       </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={["top"]}>
-      <View style={styles.tabsFiltro}>
-        <TouchableOpacity
-          style={[styles.filtroBtn, vista === "todos" && styles.filtroBtnActivo]}
-          onPress={() => cambiarVista("todos")}
-        >
-          <Text style={[styles.filtroText, vista === "todos" && styles.filtroTextActivo]}>
-            Todos
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.filtroBtn, vista === "archivados" && styles.filtroBtnActivo]}
-          onPress={() => cambiarVista("archivados")}
-        >
-          <Text style={[styles.filtroText, vista === "archivados" && styles.filtroTextActivo]}>
-            Archivados
-          </Text>
-        </TouchableOpacity>
+      {/* Banda oscura: solo el título */}
+      <View style={styles.banda}>
+        <Text style={styles.titulo}>Deudores</Text>
       </View>
 
-      {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={deudores}
-          keyExtractor={(item) => item.id}
-          renderItem={renderDeudor}
-          contentContainerStyle={styles.lista}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={
-            <Text style={styles.vacio}>
-              {vista === "archivados" ? "No hay deudores archivados" : "No hay deudores registrados"}
-            </Text>
-          }
+      {/* Hoja redondeada con el selector y la lista */}
+      <View style={styles.hoja}>
+        <Filtro
+          opciones={[
+            { valor: "todos", texto: "Todos" },
+            { valor: "archivados", texto: "Archivados" },
+          ]}
+          seleccionado={vista}
+          onCambio={cambiarVista}
         />
-      )}
 
-      {/* Botón flotante para crear un deudor (no en la vista de archivados) */}
-      {vista === "todos" && (
-        <TouchableOpacity style={styles.fab} onPress={() => router.push("/deudor/nuevo")}>
-          <Ionicons name="add" size={30} color="#fff" />
-        </TouchableOpacity>
-      )}
+        {loading ? (
+          <ActivityIndicator size="large" style={{ marginTop: 40 }} />
+        ) : (
+          <FlatList
+            data={deudores}
+            keyExtractor={(item) => item.id}
+            renderItem={renderDeudor}
+            contentContainerStyle={styles.lista}
+            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            ListEmptyComponent={
+              <Text style={styles.vacio}>
+                {vista === "archivados" ? "No hay deudores archivados" : "No hay deudores registrados"}
+              </Text>
+            }
+            ListFooterComponent={
+              vista === "todos" ? (
+                <TouchableOpacity style={styles.botonNuevo} onPress={() => router.push("/deudor/nuevo")}>
+                  <Ionicons name="add" size={22} color={colores.texto} />
+                  <Text style={styles.botonNuevoTexto}>Nuevo deudor</Text>
+                </TouchableOpacity>
+              ) : undefined
+            }
+          />
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  lista: { padding: 12, paddingBottom: 90 }, // espacio para que el botón + no tape la última tarjeta
-  tabsFiltro: { flexDirection: "row", gap: 8, paddingHorizontal: 12, paddingTop: 12 },
-  filtroBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "#e5e5e5",
-  },
-  filtroBtnActivo: { backgroundColor: "#2563eb" },
-  filtroText: { color: "#666", fontWeight: "600" },
-  filtroTextActivo: { color: "#fff" },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "#2563eb",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
-  },
-  card: {
-    backgroundColor: "#fff",
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 6,
-  },
-  nombre: { fontSize: 16, fontWeight: "bold" },
-  badge: {
-    backgroundColor: "#fef3c7",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  badgeText: { color: "#b45309", fontSize: 12, fontWeight: "600" },
-  badgeAlDia: { backgroundColor: "#dcfce7" },
-  badgeTextAlDia: { color: "#16a34a" },
-  detalle: { color: "#666", fontSize: 13, marginTop: 2 },
-  total: { fontSize: 18, fontWeight: "bold", color: "#1f2937", marginTop: 8 },
-  totalDetalle: { fontSize: 13, fontWeight: "normal", color: "#666" },
-  sinDeuda: { fontSize: 14, color: "#16a34a", marginTop: 8 },
-  vacio: { textAlign: "center", marginTop: 40, color: "#999" },
-});
+const crearEstilos = (c: Colores) =>
+  StyleSheet.create({
+    container: { flex: 1, backgroundColor: c.banda },
+
+    // BANDA OSCURA
+    banda: { alignItems: "center", paddingTop: 12, paddingBottom: 34, paddingHorizontal: 16 },
+    titulo: { fontSize: 17, fontWeight: "bold", color: c.sobreBanda },
+
+    // HOJA
+    hoja: {
+      flex: 1,
+      backgroundColor: c.hoja,
+      borderTopLeftRadius: 28,
+      borderTopRightRadius: 28,
+      marginTop: -20,
+      overflow: "hidden",
+    },
+    lista: { padding: 16, paddingBottom: 32 },
+
+    card: {
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 10,
+      backgroundColor: c.tarjeta,
+      borderRadius: 16,
+      borderWidth: 1,
+      borderColor: c.separador,
+      padding: 14,
+      marginBottom: 10,
+    },
+    avatar: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      backgroundColor: c.neutroSuave,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    avatarTexto: { fontSize: 14, fontWeight: "bold", color: c.texto },
+    nombre: { flex: 1, fontSize: 16, fontWeight: "bold", color: c.texto },
+    badge: { backgroundColor: c.avisoSuave, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
+    badgeText: { color: c.aviso, fontSize: 12, fontWeight: "600" },
+    badgeAlDia: { backgroundColor: c.exitoSuave },
+    badgeTextAlDia: { color: c.exito },
+
+    // BOTON PUNTEADO "+ NUEVO DEUDOR"
+    botonNuevo: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 6,
+      borderWidth: 1.5,
+      borderStyle: "dashed",
+      borderColor: c.borde,
+      borderRadius: 16,
+      paddingVertical: 18,
+      marginTop: 4,
+    },
+    botonNuevoTexto: { fontSize: 15, fontWeight: "600", color: c.texto },
+
+    vacio: { textAlign: "center", marginTop: 40, marginBottom: 20, color: c.textoTenue },
+  });

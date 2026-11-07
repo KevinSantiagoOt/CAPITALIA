@@ -1,9 +1,8 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
   TextInput,
-  StyleSheet,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -13,6 +12,9 @@ import {
 } from "react-native";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTema } from "@/theme/tema";
+import { crearEstilosFormulario } from "@/theme/formulario";
+import { useBarraClara } from "@/theme/barra-estado";
 
 export type DatosDeudor = {
   nombre: string;
@@ -31,6 +33,10 @@ type Props = {
 
 // FORMULARIO DE DEUDOR, COMPARTIDO POR "NUEVO" Y "EDITAR"
 export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: Props) {
+  const { colores } = useTema();
+  const styles = useMemo(() => crearEstilosFormulario(colores), [colores]);
+  useBarraClara();
+
   const [nombre, setNombre] = useState(inicial?.nombre ?? "");
   const [cedula, setCedula] = useState(inicial?.cedula ?? "");
   const [telefono, setTelefono] = useState(inicial?.telefono ?? "");
@@ -75,14 +81,14 @@ export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: P
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.hoja} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           <Text style={styles.label}>Nombre *</Text>
           <TextInput
             style={styles.input}
             value={nombre}
             onChangeText={setNombre}
             placeholder="Ej: Juan Pérez"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             autoCapitalize="words"
           />
 
@@ -92,7 +98,7 @@ export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: P
             value={cedula}
             onChangeText={setCedula}
             placeholder="Solo números"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             keyboardType="number-pad"
           />
 
@@ -102,7 +108,7 @@ export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: P
             value={telefono}
             onChangeText={setTelefono}
             placeholder="Ej: 3001234567"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             keyboardType="phone-pad"
           />
 
@@ -112,12 +118,12 @@ export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: P
             value={direccion}
             onChangeText={setDireccion}
             placeholder="Ej: Calle 10 #20-30"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
           />
 
           <TouchableOpacity style={styles.boton} onPress={guardar} disabled={guardando}>
             {guardando ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color={colores.sobrePrimario} />
             ) : (
               <Text style={styles.botonTexto}>{textoBoton}</Text>
             )}
@@ -128,36 +134,3 @@ export default function DeudorForm({ titulo, textoBoton, inicial, onGuardar }: P
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  cancelar: { color: "#2563eb", fontSize: 16, width: 70 },
-  titulo: { fontSize: 17, fontWeight: "bold" },
-  form: { padding: 16 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 6, marginTop: 10 },
-  input: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-  },
-  boton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 28,
-  },
-  botonTexto: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-});

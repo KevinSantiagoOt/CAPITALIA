@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import * as SecureStore from "expo-secure-store";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/services/api";
+import { useTema } from "@/theme/tema";
+import { Colores } from "@/theme/colores";
+import { crearEstilosFormulario } from "@/theme/formulario";
+import { useBarraClara } from "@/theme/barra-estado";
 
 type DeudorOpcion = { id: string; nombre: string; cedula: string };
 
@@ -48,6 +52,8 @@ const formatearMonto = (monto: number) => `$${Math.round(monto).toLocaleString("
 // En iPhone el selector se muestra como un botón pequeño que abre el calendario.
 // En Android se abre un diálogo al tocar el campo.
 function CampoFecha({ valor, onCambio, minima }: { valor: Date; onCambio: (d: Date) => void; minima?: Date }) {
+  const { colores, esOscuro } = useTema();
+  const styles = useMemo(() => crearEstilos(colores), [colores]);
   const [abierto, setAbierto] = useState(false);
 
   if (Platform.OS === "ios") {
@@ -56,6 +62,7 @@ function CampoFecha({ valor, onCambio, minima }: { valor: Date; onCambio: (d: Da
         value={valor}
         mode="date"
         display="compact"
+        themeVariant={esOscuro ? "dark" : "light"}
         locale="es-CO"
         minimumDate={minima}
         onChange={(_, fecha) => fecha && onCambio(fecha)}
@@ -67,12 +74,13 @@ function CampoFecha({ valor, onCambio, minima }: { valor: Date; onCambio: (d: Da
   return (
     <>
       <TouchableOpacity style={styles.input} onPress={() => setAbierto(true)}>
-        <Text style={{ fontSize: 16 }}>{mostrarFecha(valor)}</Text>
+        <Text style={styles.valorFijo}>{mostrarFecha(valor)}</Text>
       </TouchableOpacity>
       {abierto && (
         <DateTimePicker
           value={valor}
           mode="date"
+          themeVariant={esOscuro ? "dark" : "light"}
           minimumDate={minima}
           onChange={(_, fecha) => {
             setAbierto(false);
@@ -113,6 +121,9 @@ type Props = {
 
 // ---------- FORMULARIO DE PRESTAMO, COMPARTIDO POR "NUEVO" Y "EDITAR" ----------
 export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, edicion, onGuardar }: Props) {
+  const { colores } = useTema();
+  const styles = useMemo(() => crearEstilos(colores), [colores]);
+  useBarraClara();
   const [deudor, setDeudor] = useState<{ id: string; nombre: string } | null>(deudorFijo ?? null);
   const [monto, setMonto] = useState(inicial ? String(inicial.monto) : ""); // solo dígitos, ej "2000000"
   const [tasa, setTasa] = useState(inicial ? String(inicial.tasa) : ""); // ej "4.5"
@@ -200,19 +211,19 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.hoja} contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
           {/* Deudor: fijo si viene del detalle, seleccionable si viene de la pestaña */}
           <Text style={styles.label}>Deudor *</Text>
           {deudorFijo ? (
             <View style={[styles.input, styles.inputFijo]}>
-              <Text style={{ fontSize: 16 }}>{deudor?.nombre}</Text>
+              <Text style={styles.valorFijo}>{deudor?.nombre}</Text>
             </View>
           ) : (
             <TouchableOpacity style={[styles.input, styles.selector]} onPress={abrirSelector}>
-              <Text style={{ fontSize: 16, color: deudor ? "#000" : "#999" }}>
+              <Text style={[styles.valorFijo, !deudor && { color: colores.textoTenue }]}>
                 {deudor ? deudor.nombre : "Elegir deudor"}
               </Text>
-              <Ionicons name="chevron-down" size={18} color="#999" />
+              <Ionicons name="chevron-down" size={18} color={colores.textoTenue} />
             </TouchableOpacity>
           )}
 
@@ -223,7 +234,7 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
             value={monto ? Number(monto).toLocaleString("es-CO") : ""}
             onChangeText={(texto) => setMonto(texto.replace(/\D/g, ""))}
             placeholder="Ej: 2.000.000"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             keyboardType="number-pad"
           />
 
@@ -233,7 +244,7 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
             value={tasa}
             onChangeText={(texto) => setTasa(texto.replace(/[^0-9.,]/g, ""))}
             placeholder="Ej: 5"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             keyboardType="decimal-pad"
           />
 
@@ -241,7 +252,7 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
           {bloquearInicio ? (
             <>
               <View style={[styles.input, styles.inputFijo]}>
-                <Text style={{ fontSize: 16 }}>{mostrarFecha(fechaInicio)}</Text>
+                <Text style={styles.valorFijo}>{mostrarFecha(fechaInicio)}</Text>
               </View>
               <Text style={styles.ayuda}>
                 No se puede cambiar porque ya tiene cuotas pagadas.
@@ -253,7 +264,13 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
 
           <View style={styles.filaSwitch}>
             <Text style={styles.labelSwitch}>Tiene fecha fin</Text>
-            <Switch value={tieneFin} onValueChange={setTieneFin} />
+            <Switch
+              value={tieneFin}
+              onValueChange={setTieneFin}
+              // Apagado: gris visible sobre la hoja blanca (el gris por defecto del iPhone casi no se ve)
+              trackColor={{ false: colores.iconoTenue, true: colores.primario }}
+              ios_backgroundColor={colores.iconoTenue}
+            />
           </View>
           {tieneFin ? (
             <CampoFecha valor={fechaFin} onCambio={setFechaFin} minima={sumarMeses(fechaInicio, 1)} />
@@ -298,7 +315,7 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
           )}
 
           <TouchableOpacity style={styles.boton} onPress={guardar} disabled={guardando}>
-            {guardando ? <ActivityIndicator color="#fff" /> : <Text style={styles.botonTexto}>{textoBoton}</Text>}
+            {guardando ? <ActivityIndicator color={colores.sobrePrimario} /> : <Text style={styles.botonTexto}>{textoBoton}</Text>}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -318,12 +335,13 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
             <Text style={styles.titulo}>Elegir deudor</Text>
             <View style={{ width: 70 }} />
           </View>
+          <View style={styles.hoja}>
           <TextInput
-            style={[styles.input, { margin: 12 }]}
+            style={[styles.input, { margin: 16, marginTop: 20 }]}
             value={busqueda}
             onChangeText={setBusqueda}
             placeholder="Buscar por nombre o cédula"
-            placeholderTextColor="#999"
+            placeholderTextColor={colores.textoTenue}
             autoFocus
           />
           {cargandoDeudores ? (
@@ -332,7 +350,7 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
             <FlatList
               data={deudoresFiltrados}
               keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingHorizontal: 12 }}
+              contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
               keyboardShouldPersistTaps="handled"
               ListEmptyComponent={
                 <Text style={styles.vacio}>
@@ -353,67 +371,47 @@ export default function PrestamoForm({ titulo, textoBoton, deudorFijo, inicial, 
               )}
             />
           )}
+          </View>
         </View>
       </Modal>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f5f5" },
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  cancelar: { color: "#2563eb", fontSize: 16, width: 70 },
-  titulo: { fontSize: 17, fontWeight: "bold" },
-  form: { padding: 16, paddingBottom: 40 },
-  label: { fontSize: 14, fontWeight: "600", color: "#333", marginBottom: 6, marginTop: 14 },
-  input: {
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 16,
-  },
-  inputFijo: { backgroundColor: "#f3f4f6" },
-  selector: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  filaSwitch: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginTop: 18,
-    marginBottom: 8,
-  },
-  labelSwitch: { fontSize: 14, fontWeight: "600", color: "#333" },
-  ayuda: { fontSize: 13, color: "#666", marginTop: 4 },
-  preview: {
-    backgroundColor: "#eff6ff",
-    borderRadius: 10,
-    padding: 14,
-    marginTop: 20,
-  },
-  previewTitulo: { fontSize: 14, fontWeight: "bold", color: "#1e3a8a", marginBottom: 6 },
-  previewLinea: { fontSize: 14, color: "#1f2937", marginTop: 2 },
-  previewValor: { fontWeight: "bold", color: "#2563eb" },
-  previewAviso: { fontSize: 13, color: "#b45309", marginTop: 8 },
-  boton: {
-    backgroundColor: "#2563eb",
-    borderRadius: 10,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 24,
-  },
-  botonTexto: { color: "#fff", fontSize: 16, fontWeight: "bold" },
-  vacio: { textAlign: "center", marginTop: 40, color: "#999", paddingHorizontal: 20 },
-  opcion: { backgroundColor: "#fff", padding: 14, borderRadius: 10, marginBottom: 8 },
-  opcionNombre: { fontSize: 16, fontWeight: "600" },
-  opcionCedula: { fontSize: 13, color: "#666", marginTop: 2 },
+// Estilos comunes de formulario (theme/formulario.ts) más los propios de este formulario
+const crearEstilos = (c: Colores) => ({
+  ...crearEstilosFormulario(c),
+  ...StyleSheet.create({
+    valorFijo: { fontSize: 16, color: c.texto },
+    selector: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    filaSwitch: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 18,
+      marginBottom: 8,
+    },
+    labelSwitch: { fontSize: 14, fontWeight: "600", color: c.textoSecundario },
+    preview: {
+      backgroundColor: c.resumenFondo,
+      borderRadius: 16,
+      padding: 16,
+      marginTop: 20,
+    },
+    previewTitulo: { fontSize: 14, fontWeight: "bold", color: c.resumenTitulo, marginBottom: 6 },
+    previewLinea: { fontSize: 14, color: c.texto, marginTop: 2 },
+    previewValor: { fontWeight: "bold", color: c.primario },
+    previewAviso: { fontSize: 13, color: c.aviso, marginTop: 8 },
+    vacio: { textAlign: "center", marginTop: 40, color: c.textoTenue, paddingHorizontal: 20 },
+    opcion: {
+      backgroundColor: c.tarjeta,
+      borderWidth: 1,
+      borderColor: c.separador,
+      padding: 14,
+      borderRadius: 16,
+      marginBottom: 10,
+    },
+    opcionNombre: { fontSize: 16, fontWeight: "600", color: c.texto },
+    opcionCedula: { fontSize: 13, color: c.textoSecundario, marginTop: 2 },
+  }),
 });

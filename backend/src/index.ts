@@ -6,6 +6,7 @@ import debtorRoutes from './routes/debtorRoutes'
 import loanRoutes from './routes/loanRoutes'
 import installmentRoutes from './routes/installmentRoutes'
 import documentRoutes from './routes/documentRoutes'
+import profileRoutes from './routes/profileRoutes'
 import { verificarToken } from './middleware/auth'
 
 const app = express()
@@ -26,6 +27,7 @@ app.use('/api', debtorRoutes)
 app.use('/api', loanRoutes)
 app.use('/api', installmentRoutes)
 app.use('/api', documentRoutes)
+app.use('/api', profileRoutes)
 
 const PORT = process.env.PORT || 3000
 

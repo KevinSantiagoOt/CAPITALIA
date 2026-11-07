@@ -3,6 +3,14 @@ import { router } from "expo-router";
 
 export const BASE_URL = "http://192.168.100.6:3000";
 
+// BORRA LA SESION GUARDADA Y VUELVE AL LOGIN
+export async function cerrarSesion() {
+  await SecureStore.deleteItemAsync("userToken");
+  await SecureStore.deleteItemAsync("userName");
+  await SecureStore.deleteItemAsync("userId");
+  router.replace("/login");
+}
+
 type Options = {
   method?: "GET" | "POST" | "PUT" | "DELETE";
   body?: unknown;
@@ -25,10 +33,7 @@ export async function api<T = any>(path: string, options: Options = {}): Promise
 
   // Si el token venció o es inválido, limpiamos la sesión y volvemos al login
   if (response.status === 401) {
-    await SecureStore.deleteItemAsync("userToken");
-    await SecureStore.deleteItemAsync("userName");
-    await SecureStore.deleteItemAsync("userId");
-    router.replace("/login");
+    await cerrarSesion();
     throw new Error("Sesión expirada");
   }
 

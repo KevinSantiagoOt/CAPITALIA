@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -7,6 +7,8 @@ import * as WebBrowser from "expo-web-browser";
 import { File } from "expo-file-system";
 import { Ionicons } from "@expo/vector-icons";
 import { api } from "@/services/api";
+import { useTema } from "@/theme/tema";
+import { Colores } from "@/theme/colores";
 
 export type Documento = {
   id: string;
@@ -24,6 +26,8 @@ type Props = {
 
 // SECCION "LETRAS": documentos firmados del préstamo (fotos o PDF), guardados en Cloudinary
 export default function Letras({ prestamoId, documentos, onCambio }: Props) {
+  const { colores } = useTema();
+  const styles = useMemo(() => crearEstilos(colores), [colores]);
   const [subiendo, setSubiendo] = useState(false);
 
   const subir = async (archivo: { uri: string; name: string; type: string }) => {
@@ -127,7 +131,7 @@ export default function Letras({ prestamoId, documentos, onCambio }: Props) {
               <Image source={{ uri: documento.miniatura }} style={styles.imagen} contentFit="cover" />
             ) : (
               <View style={styles.pdf}>
-                <Ionicons name="document-text" size={32} color="#dc2626" />
+                <Ionicons name="document-text" size={32} color={colores.peligro} />
                 <Text style={styles.pdfTexto}>PDF</Text>
               </View>
             )}
@@ -144,16 +148,17 @@ export default function Letras({ prestamoId, documentos, onCambio }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  contenedor: { marginHorizontal: 12, marginBottom: 8 },
-  fila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginHorizontal: 4 },
-  titulo: { fontSize: 16, fontWeight: "bold" },
-  agregar: { color: "#2563eb", fontWeight: "600", fontSize: 14 },
-  lista: { gap: 8, paddingVertical: 8, paddingHorizontal: 4 },
-  vacio: { color: "#999", fontSize: 13, paddingVertical: 8 },
-  miniatura: { width: 72, height: 72, borderRadius: 8, overflow: "hidden", backgroundColor: "#fff" },
-  imagen: { width: "100%", height: "100%" },
-  pdf: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: "#fef2f2" },
-  pdfTexto: { fontSize: 11, fontWeight: "700", color: "#dc2626", marginTop: 2 },
-  cargando: { justifyContent: "center", alignItems: "center", backgroundColor: "#f3f4f6" },
-});
+const crearEstilos = (c: Colores) =>
+  StyleSheet.create({
+    contenedor: { marginBottom: 8 },
+    fila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+    titulo: { fontSize: 18, fontWeight: "bold", color: c.texto },
+    agregar: { color: c.primario, fontWeight: "600", fontSize: 14 },
+    lista: { gap: 8, paddingVertical: 8 },
+    vacio: { color: c.textoTenue, fontSize: 13, paddingVertical: 8 },
+    miniatura: { width: 72, height: 72, borderRadius: 8, overflow: "hidden", backgroundColor: c.tarjeta },
+    imagen: { width: "100%", height: "100%" },
+    pdf: { flex: 1, justifyContent: "center", alignItems: "center", backgroundColor: c.peligroSuave },
+    pdfTexto: { fontSize: 11, fontWeight: "700", color: c.peligro, marginTop: 2 },
+    cargando: { justifyContent: "center", alignItems: "center", backgroundColor: c.neutroSuave },
+  });
