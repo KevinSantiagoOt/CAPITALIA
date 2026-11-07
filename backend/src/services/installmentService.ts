@@ -10,7 +10,9 @@ const sumarMeses = (fecha: Date, meses: number) => {
     return new Date(Date.UTC(anio, mes, Math.min(fecha.getUTCDate(), ultimoDiaDelMes)))
 }
 
-// CREA LAS CUOTAS QUE FALTEN DE UN PRESTAMO, UNA POR MES, HASTA EL MES ACTUAL
+// CREA LAS CUOTAS QUE FALTEN DE UN PRESTAMO, UNA POR MES
+// - Con fecha fin: todas, hasta la fecha fin
+// - Sin fecha fin: las que ya pasaron más la próxima por vencer
 // Se pague o no la cuota anterior, cada mes que pasa debe tener su cuota
 const sincronizarPrestamo = async (prestamo: {
     id: string
@@ -28,17 +30,25 @@ const sincronizarPrestamo = async (prestamo: {
     const base = ultimaCuota ? ultimaCuota.fechaVencimiento : prestamo.fechaInicio
 
     const hoy = new Date()
-    let limite = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth() + 1, 0)) // fin del mes actual
-    if (prestamo.fechaFinPlazo && prestamo.fechaFinPlazo < limite) {
-        limite = prestamo.fechaFinPlazo
-    }
+    const hoyUTC = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()))
 
     // Las cuotas cobran solo el interés mensual: capital x tasa
     const montoInteres = prestamo.montoCapital.mul(prestamo.tasaInteres).div(100).toDecimalPlaces(2)
 
     const nuevas = []
-    for (let i = 1; sumarMeses(base, i) <= limite; i++) {
-        nuevas.push({ montoInteres, fechaVencimiento: sumarMeses(base, i), prestamoId: prestamo.id })
+    for (let i = 1; ; i++) {
+        const fecha = sumarMeses(base, i)
+
+        if (prestamo.fechaFinPlazo) {
+            if (fecha > prestamo.fechaFinPlazo) break
+        } else {
+            // Sin fecha fin: si la cuota anterior ya es la próxima por vencer, no se crean más.
+            // (Un préstamo sin cuotas no tiene "anterior": su primera cuota siempre se crea)
+            const anterior = i === 1 ? (ultimaCuota ? base : null) : sumarMeses(base, i - 1)
+            if (anterior && anterior >= hoyUTC) break
+        }
+
+        nuevas.push({ montoInteres, fechaVencimiento: fecha, prestamoId: prestamo.id })
     }
 
     if (nuevas.length > 0) {

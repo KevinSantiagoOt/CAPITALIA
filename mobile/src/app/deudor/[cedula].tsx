@@ -152,6 +152,7 @@ export default function DetalleDeudorScreen() {
     return new Date(fecha).toLocaleDateString("es-CO", {
       day: "2-digit",
       month: "short",
+      timeZone: "UTC", // las fechas vienen sin hora; sin esto se corren un día en Colombia
       year: "numeric",
     });
   };
@@ -205,7 +206,19 @@ export default function DetalleDeudorScreen() {
         </View>
       </View>
 
-      <Text style={styles.seccionTitulo}>Préstamos</Text>
+      <View style={styles.seccionFila}>
+        <Text style={styles.seccionTitulo}>Préstamos</Text>
+        <TouchableOpacity
+          onPress={() =>
+            router.push({
+              pathname: "/prestamo/nuevo",
+              params: { deudorId: deudor.id, deudorNombre: deudor.nombre },
+            })
+          }
+        >
+          <Text style={styles.nuevoPrestamo}>+ Nuevo préstamo</Text>
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={deudor.prestamos}
@@ -273,6 +286,8 @@ const styles = StyleSheet.create({
   },
   botonEliminarTexto: { color: "#dc2626", fontWeight: "600" },
   seccionTitulo: { fontSize: 16, fontWeight: "bold", marginLeft: 16, marginTop: 4 },
+  seccionFila: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginRight: 16 },
+  nuevoPrestamo: { color: "#2563eb", fontWeight: "600", fontSize: 14, marginTop: 4 },
   vacio: { textAlign: "center", color: "#999", marginTop: 20 },
   prestamoCard: {
     backgroundColor: "#fff",

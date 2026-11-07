@@ -78,6 +78,7 @@ export default function DetallePrestamoScreen() {
     return new Date(fecha).toLocaleDateString("es-CO", {
       day: "2-digit",
       month: "short",
+      timeZone: "UTC", // las fechas vienen sin hora; sin esto se corren un día en Colombia
       year: "numeric",
     });
   };

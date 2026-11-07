@@ -8,14 +8,33 @@ export const createLoan = async (req: Request, res: Response) => {
         const usuarioId = res.locals.usuarioId as string
         const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado, deudorId} = req.body
 
+        if (!(Number(montoCapital) > 0) || !(Number(tasaInteres) > 0)) {
+            return res.status(400).json({ message: "El monto y la tasa de interés deben ser mayores a cero" })
+        }
+
+        // Las fechas llegan como "AAAA-MM-DD"; Prisma necesita objetos Date
+        const inicio = new Date(fechaInicio)
+        const fin = fechaFinPlazo ? new Date(fechaFinPlazo) : null
+        if (isNaN(inicio.getTime()) || (fin && isNaN(fin.getTime()))) {
+            return res.status(400).json({ message: "Fecha inválida" })
+        }
+        if (fin && fin <= inicio) {
+            return res.status(400).json({ message: "La fecha fin debe ser posterior a la fecha de inicio" })
+        }
+
         // El deudor tiene que ser del mismo prestamista
         const deudor = await prisma.deudor.findFirst({ where: { id: deudorId, usuarioId } })
         if (!deudor) {
             return res.status(404).json({ message: "Deudor no encontrado" })
         }
 
+        // Si estaba archivado y vuelve a pedir prestado, regresa a la lista
+        if (deudor.archivado) {
+            await prisma.deudor.update({ where: { id: deudorId }, data: { archivado: false } })
+        }
+
         const newLoan = await prisma.prestamo.create({
-        data: {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo,estado, deudorId, usuarioId}
+        data: {montoCapital, tasaInteres, fechaInicio: inicio, fechaFinPlazo: fin, estado: estado ?? "activo", deudorId, usuarioId}
     })
     res.status(201).json({message: "Deuda ingresada", id: newLoan.id})
     } catch(error) {
