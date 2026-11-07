@@ -5,7 +5,14 @@ import { syncInstallments } from "../services/installmentService"
 // CREAR PRESTAMO
 export const createLoan = async (req: Request, res: Response) => {
     try{
-        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado, deudorId, usuarioId} = req.body
+        const usuarioId = res.locals.usuarioId as string
+        const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado, deudorId} = req.body
+
+        // El deudor tiene que ser del mismo prestamista
+        const deudor = await prisma.deudor.findFirst({ where: { id: deudorId, usuarioId } })
+        if (!deudor) {
+            return res.status(404).json({ message: "Deudor no encontrado" })
+        }
 
         const newLoan = await prisma.prestamo.create({
         data: {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo,estado, deudorId, usuarioId}
@@ -20,13 +27,13 @@ export const createLoan = async (req: Request, res: Response) => {
 // OBTENER PRESTAMO POR ID
 export const getLoanById = async (req: Request, res: Response) => {
   try {
+    const usuarioId = res.locals.usuarioId as string
     const id = req.params.id as string
 
-    const dueno = await prisma.prestamo.findUnique({ where: { id }, select: { usuarioId: true } })
-    if (dueno) await syncInstallments(dueno.usuarioId)
+    await syncInstallments(usuarioId)
 
-    const prestamo = await prisma.prestamo.findUnique({
-      where: { id },
+    const prestamo = await prisma.prestamo.findFirst({
+      where: { id, usuarioId },
       include: {
         deudor: true,    // datos del deudor
         cuotas: { orderBy: { fechaVencimiento: "asc" } },    // sus cuotas, de la más vieja a la más nueva
@@ -47,9 +54,16 @@ export const getLoanById = async (req: Request, res: Response) => {
 // ACTUALIZAR PRESTAMO
 export const updateLoan = async (req: Request, res: Response) => {
     try{
+        const usuarioId = res.locals.usuarioId as string
         const {id} = req.params
         const idStrg = String(id)
         const {montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado} = req.body
+
+        const existe = await prisma.prestamo.findFirst({ where: { id: idStrg, usuarioId } })
+        if (!existe) {
+            return res.status(404).json({ message: "No se encontro el préstamo" })
+        }
+
         const updatedLoan = await prisma.prestamo.update({
             where: { id: idStrg },
             data: { montoCapital, tasaInteres, fechaInicio, fechaFinPlazo, estado }
@@ -63,8 +77,15 @@ export const updateLoan = async (req: Request, res: Response) => {
 // ELIMINAR PRESTAMOS
 export const deleteLoan = async (req: Request, res: Response) => {
     try{
+        const usuarioId = res.locals.usuarioId as string
         const {id} = req.params
         const idStrg = String(id)
+
+        const existe = await prisma.prestamo.findFirst({ where: { id: idStrg, usuarioId } })
+        if (!existe) {
+            return res.status(404).json({ message: "No se encontro el préstamo" })
+        }
+
         await prisma.prestamo.delete({
             where: { id: idStrg }
         })
@@ -75,14 +96,14 @@ export const deleteLoan = async (req: Request, res: Response) => {
 }
 
 // VER TODOS LOS PRESTAMOS
+// El :usuarioId de la URL se ignora; se usa el del token
 export const getAllLoans = async (req: Request, res: Response) => {
   try {
-    const { usuarioId } = req.params
-    const usuarioIdStrg = String(usuarioId)
-    await syncInstallments(usuarioIdStrg)
+    const usuarioId = res.locals.usuarioId as string
+    await syncInstallments(usuarioId)
 
     const deudores = await prisma.prestamo.findMany({
-      where: { usuarioId: usuarioIdStrg },
+      where: { usuarioId },
       include: {
         deudor: true,
         cuotas: true,
@@ -97,15 +118,15 @@ export const getAllLoans = async (req: Request, res: Response) => {
 }
 
 //OBTENER PRESTAMOS ACTIVOS
+// El :usuarioId de la URL se ignora; se usa el del token
 export const getActiveLoans = async (req: Request, res: Response) => {
     try {
-    const { usuarioId } = req.params
-    const usuarioIdStrg = String(usuarioId)
-    await syncInstallments(usuarioIdStrg)
+    const usuarioId = res.locals.usuarioId as string
+    await syncInstallments(usuarioId)
 
     const prestamos = await prisma.prestamo.findMany({
       where: {
-        usuarioId: usuarioIdStrg,
+        usuarioId,
         estado: "activo"
       },include: {
         deudor: true,

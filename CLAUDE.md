@@ -17,6 +17,7 @@ App para que el papá de Kevin administre los préstamos que hace a otras person
 - **Método de trabajo:** **Claude hace los cambios directamente en el código** (tiene acceso total al repo). Kevin no quiere hacerlos a mano. Después de cada cambio, explica bien qué se cambió, en qué archivo y por qué.
 - **Para depurar:** los procesos (backend, Metro/Expo) corren en Warp, no dentro de Claude Code. Pide el mensaje de error tal cual o una captura en vez de adivinar.
 - **Ritmo:** paso por paso, comprobando que algo funciona antes de pasar a lo siguiente. Si dice "espera", no avances.
+- **Cómo corre el proyecto (en Warp):** backend con `npx ts-node src/index.ts`, que **no se recarga solo**: tras cambiar el backend hay que pedirle a Kevin que lo reinicie (o sugerir `npm run dev`, que usa nodemon). Mobile con `npx expo start -c`. Para probar cambios del backend sin esperar, se puede levantar una copia con `PORT=3001` y apagarla al terminar.
 - **Entorno:** Windows, terminal Warp, editor VS Code, Insomnia para probar la API, Git con repo en GitHub (`KevinSantiagoOt/CAPITALIA`, rama `master`), celular iPhone con Expo Go.
 
 ## 3. Estructura del repo
@@ -46,7 +47,7 @@ El backend es TypeScript con handlers estilo Express (`Request`, `Response`) y *
 
 ## 4. API (backend)
 
-Base URL en desarrollo: `http://<IP-local-del-PC>:3000`. **`localhost` no funciona desde el celular.** Todas las rutas, salvo el login, necesitan `Authorization: Bearer <token>`.
+Base URL en desarrollo: `http://<IP-local-del-PC>:3000`. **`localhost` no funciona desde el celular.** Todas las rutas, salvo login y registro, necesitan `Authorization: Bearer <token>`: el middleware `backend/src/middleware/auth.ts` lo verifica y deja el id en `res.locals.usuarioId`. **Los controladores siempre usan ese id**, nunca el `:usuarioId` de la URL (que se ignora) ni uno del body, y en rutas por id comprueban que el registro sea del usuario (si no, 404). Así Wilfer y Kevin nunca ven lo del otro.
 
 | Acción | Método y ruta |
 |---|---|

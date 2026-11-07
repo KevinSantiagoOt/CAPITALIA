@@ -4,7 +4,8 @@ import prisma from "../lib/prisma"
 // CREAR DEUDOR
 export const createDebtor = async (req: Request, res: Response) => {
     try{
-        const {nombre, cedula, telefono, direccion, usuarioId} = req.body
+        const usuarioId = res.locals.usuarioId as string
+        const {nombre, cedula, telefono, direccion} = req.body
 
         const newDebtor = await prisma.deudor.create({
         data: { nombre, cedula, telefono, direccion, usuarioId}
@@ -18,10 +19,11 @@ export const createDebtor = async (req: Request, res: Response) => {
 // OBTENER DEUDOR POR CÉDULA
 export const getDebtorByCedula = async (req: Request, res: Response) => {
   try {
+    const usuarioId = res.locals.usuarioId as string
     const { cedula } = req.params
     const cedulaStrg = String(cedula)
-    const deudor = await prisma.deudor.findUnique({
-      where: { cedula: cedulaStrg },
+    const deudor = await prisma.deudor.findFirst({
+      where: { cedula: cedulaStrg, usuarioId },
       include: {
         prestamos: true  // trae también sus préstamos
       }
@@ -41,9 +43,15 @@ export const getDebtorByCedula = async (req: Request, res: Response) => {
 // ACTUALIZAR DEUDOR
 export const updateDebtor = async (req: Request, res: Response) => {
     try{
+        const usuarioId = res.locals.usuarioId as string
         const {id} = req.params
         const idNum = String(id)
         const {nombre, cedula, telefono, direccion} = req.body
+
+        const existe = await prisma.deudor.findFirst({ where: { id: idNum, usuarioId } })
+        if (!existe) {
+            return res.status(404).json({ message: "Deudor no encontrado" })
+        }
 
         const updatedDebtor = await prisma.deudor.update({
             where: { id: idNum },
@@ -59,8 +67,14 @@ export const updateDebtor = async (req: Request, res: Response) => {
 // ELIMINAR DEUDOR
 export const deleteDebtor = async (req: Request, res: Response) => {
     try{
+        const usuarioId = res.locals.usuarioId as string
         const {id} = req.params
         const idNum = String(id)
+
+        const existe = await prisma.deudor.findFirst({ where: { id: idNum, usuarioId } })
+        if (!existe) {
+            return res.status(404).json({ message: "Deudor no encontrado" })
+        }
 
         const deletedDebtor = await prisma.deudor.delete({
             where: { id: idNum }
@@ -73,13 +87,13 @@ export const deleteDebtor = async (req: Request, res: Response) => {
 }
 
 // OBTENER TODOS LOS DEUDORES
+// El :usuarioId de la URL se ignora; se usa el del token
 export const getAllDebtors = async (req: Request, res: Response) => {
   try {
-    const { usuarioId } = req.params
-    const usuarioIdStrg = String(usuarioId)
+    const usuarioId = res.locals.usuarioId as string
 
     const deudores = await prisma.deudor.findMany({
-      where: { usuarioId: usuarioIdStrg },
+      where: { usuarioId },
       include: {
         prestamos: true
       }
