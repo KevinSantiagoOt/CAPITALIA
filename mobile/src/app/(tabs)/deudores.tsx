@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,7 +9,8 @@ import {
   RefreshControl,
 } from "react-native";
 import * as SecureStore from "expo-secure-store";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
 
@@ -47,9 +48,12 @@ export default function DeudoresScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    cargarDeudores();
-  }, [cargarDeudores]);
+  // Recarga cada vez que vuelves a esta pestaña (ej. después de crear un deudor)
+  useFocusEffect(
+    useCallback(() => {
+      cargarDeudores();
+    }, [cargarDeudores])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -101,13 +105,34 @@ export default function DeudoresScreen() {
           ListEmptyComponent={<Text style={styles.vacio}>No hay deudores registrados</Text>}
         />
       )}
+
+      {/* Botón flotante para crear un deudor */}
+      <TouchableOpacity style={styles.fab} onPress={() => router.push("/deudor/nuevo")}>
+        <Ionicons name="add" size={30} color="#fff" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#f5f5f5" },
-  lista: { padding: 12 },
+  lista: { padding: 12, paddingBottom: 90 }, // espacio para que el botón + no tape la última tarjeta
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#2563eb",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
   card: {
     backgroundColor: "#fff",
     borderRadius: 12,

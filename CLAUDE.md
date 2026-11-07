@@ -78,6 +78,7 @@ Guardado en `expo-secure-store` tras el login: `userToken`, `userName`, `userId`
 - Al marcar una cuota como pagada sin enviar `fechaPago`, el backend guarda la fecha de hoy.
 - El préstamo sigue activo hasta que el deudor devuelve el capital completo; entonces pasa a inactivo. **El cierre del préstamo aún no está implementado.**
 - Los préstamos tienen **documentos**: las "letras", que son el documento de compromiso firmado por ambas partes. Suelen ser PDFs escaneados o fotos.
+- La app es **principalmente para Wilfer**. Abrirla a más prestamistas queda para más adelante; por eso la cédula del deudor sigue siendo **única en toda la tabla** (no por prestamista). Cambiarlo a `@@unique([cedula, usuarioId])` se decidirá cuando se amplíe.
 - Usuarios en la BD: hay **dos prestamistas reales, Wilfer (el papá) y Kevin Otalvaro**. Cada uno debe ver solo sus deudores, préstamos y cuotas; nunca cruzarlos. Carlos Mendoza y Ana Gómez son de prueba; los préstamos de 2024 son de Carlos.
 
 ## 6. Lo que ya funciona
@@ -111,7 +112,7 @@ No correr `npm audit fix --force`: puede romper el proyecto.
 
 1. **Terminar y verificar el upgrade a SDK 58** (sección 7). Kevin pidió comprobar que funciona antes de seguir.
 2. ~~Migrar el resto de pantallas a `api()`~~ (hecho el 6 nov 2026). **No migrar `login.tsx`**: ahí un 401 significa contraseña incorrecta y `api()` lo trataría como sesión vencida.
-3. **Crear, editar y eliminar deudores**, luego **préstamos** (los botones `+` están pendientes).
+3. **Crear, editar y eliminar deudores**, luego **préstamos**. Crear deudor ya está (`deudor/nuevo.tsx`, botón + en la pestaña Deudores); faltan editar y eliminar, y todo lo de préstamos.
 4. **Subir documentos (letras)** desde el detalle del préstamo, con `expo-document-picker` y `expo-image-picker`.
 5. **Lógica de negocio en el backend** (sección 5): ~~generación automática de cuotas~~ (hecho el 6 nov 2026); falta el cierre de préstamo al devolver el capital.
 6. **Llevar a producción:** desplegar el backend en un servidor con URL fija (Railway, Render o Fly.io), cambiar `BASE_URL` en `api.ts`, y generar el build con `eas build` para que el papá instale la app sin Expo Go.

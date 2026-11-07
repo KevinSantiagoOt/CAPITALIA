@@ -1,4 +1,5 @@
 import {Request, Response} from "express"
+import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 
 // CREAR DEUDOR
@@ -7,11 +8,19 @@ export const createDebtor = async (req: Request, res: Response) => {
         const usuarioId = res.locals.usuarioId as string
         const {nombre, cedula, telefono, direccion} = req.body
 
+        if (!nombre || !cedula) {
+            return res.status(400).json({ message: "El nombre y la cédula son obligatorios" })
+        }
+
         const newDebtor = await prisma.deudor.create({
         data: { nombre, cedula, telefono, direccion, usuarioId}
     })
-    res.status(201).json({message: "Deudor creado", id: newDebtor.id})
+    res.status(201).json({message: "Deudor creado", id: newDebtor.id, cedula: newDebtor.cedula})
     }catch(error){
+        // P2002: se violó un campo único, en este caso la cédula
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+            return res.status(409).json({ message: "Ya existe un deudor con esa cédula" })
+        }
         res.status(500).json({error: "Error en el servidor"})
     }
 }
