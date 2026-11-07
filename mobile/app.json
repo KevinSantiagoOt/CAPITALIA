@@ -38,7 +38,14 @@
       "expo-image",
       "expo-status-bar",
       "expo-web-browser",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Capitalia necesita acceso a tus fotos para adjuntar las letras de los préstamos.",
+          "cameraPermission": "Capitalia necesita la cámara para tomar foto de las letras de los préstamos."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

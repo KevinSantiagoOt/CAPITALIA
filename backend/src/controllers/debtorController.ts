@@ -1,6 +1,7 @@
 import {Request, Response} from "express"
 import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
+import { borrarArchivosDePrestamos } from "./documentController"
 
 // CREAR DEUDOR
 export const createDebtor = async (req: Request, res: Response) => {
@@ -98,6 +99,10 @@ export const deleteDebtor = async (req: Request, res: Response) => {
         if (activos > 0) {
             return res.status(409).json({ message: "El deudor tiene préstamos activos. Elimínalos primero." })
         }
+
+        // Sus préstamos cerrados se borran en cascada: primero sus letras en Cloudinary
+        const prestamos = await prisma.prestamo.findMany({ where: { deudorId: idNum }, select: { id: true } })
+        await borrarArchivosDePrestamos(prestamos.map((p) => p.id))
 
         const deletedDebtor = await prisma.deudor.delete({
             where: { id: idNum }

@@ -11,13 +11,16 @@ type Options = {
 export async function api<T = any>(path: string, options: Options = {}): Promise<T> {
   const token = await SecureStore.getItemAsync("userToken");
 
+  // Los archivos (FormData) se envían tal cual: fetch arma solo el Content-Type multipart
+  const esArchivo = options.body instanceof FormData;
+
   const response = await fetch(`${BASE_URL}${path}`, {
     method: options.method ?? "GET",
     headers: {
-      "Content-Type": "application/json",
+      ...(esArchivo ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: options.body ? JSON.stringify(options.body) : undefined,
+    body: esArchivo ? (options.body as FormData) : options.body ? JSON.stringify(options.body) : undefined,
   });
 
   // Si el token venció o es inválido, limpiamos la sesión y volvemos al login

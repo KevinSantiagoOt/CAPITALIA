@@ -2,6 +2,7 @@ import { Request, Response } from "express"
 import { Prisma } from "@prisma/client"
 import prisma from "../lib/prisma"
 import { syncInstallments, actualizarEstadoPorCuotas } from "../services/installmentService"
+import { conEnlaces, borrarArchivosDePrestamos } from "./documentController"
 
 // CREAR PRESTAMO
 export const createLoan = async (req: Request, res: Response) => {
@@ -65,7 +66,8 @@ export const getLoanById = async (req: Request, res: Response) => {
       return res.status(404).json({ message: "Préstamo no encontrado" })
     }
 
-    res.json(prestamo)
+    // Los documentos van con enlaces firmados: las letras son privadas en Cloudinary
+    res.json({ ...prestamo, documentos: conEnlaces(prestamo.documentos) })
   } catch(error) {
     res.status(404).json({ message: "Préstamo no encontrado" })
   }
@@ -196,6 +198,9 @@ export const deleteLoan = async (req: Request, res: Response) => {
         if (!existe) {
             return res.status(404).json({ message: "No se encontro el préstamo" })
         }
+
+        // La BD borra los documentos en cascada, pero los archivos en Cloudinary hay que borrarlos aparte
+        await borrarArchivosDePrestamos([idStrg])
 
         await prisma.prestamo.delete({
             where: { id: idStrg }

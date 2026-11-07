@@ -12,6 +12,7 @@ import { useLocalSearchParams, Stack, router, useFocusEffect } from "expo-router
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
 import { estadoVencimiento } from "@/utils/fechas";
+import Letras, { Documento } from "@/components/letras";
 
 type Cuota = {
   id: string;
@@ -34,6 +35,7 @@ type PrestamoDetalle = {
     direccion: string | null;
   };
   cuotas: Cuota[];
+  documentos: Documento[];
 };
 
 export default function DetallePrestamoScreen() {
@@ -263,6 +265,8 @@ export default function DetallePrestamoScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      <Letras prestamoId={prestamo.id} documentos={prestamo.documentos} onCambio={cargarPrestamo} />
 
       <Text style={styles.seccionTitulo}>Cuotas</Text>
 
