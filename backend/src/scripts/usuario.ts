@@ -1,4 +1,3 @@
-/// <reference types="node" />
 // CAMBIAR LA CONTRASEÑA DE UN USUARIO O CREAR UNO NUEVO, DESDE LA TERMINAL
 // Uso (en la carpeta backend):  npm run usuario
 // Pide el correo: si ya existe, cambia su contraseña; si no, crea el usuario.
