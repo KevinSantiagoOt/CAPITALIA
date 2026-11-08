@@ -50,7 +50,7 @@ El backend es TypeScript con handlers estilo Express (`Request`, `Response`) y *
 
 ## 4. API (backend)
 
-Base URL en desarrollo: `http://<IP-local-del-PC>:3000`. **`localhost` no funciona desde el celular.** Todas las rutas, salvo login y registro, necesitan `Authorization: Bearer <token>`: el middleware `backend/src/middleware/auth.ts` lo verifica y deja el id en `res.locals.usuarioId`. **Los controladores siempre usan ese id**, nunca el `:usuarioId` de la URL (que se ignora) ni uno del body, y en rutas por id comprueban que el registro sea del usuario (si no, 404). Así Wilfer y Kevin nunca ven lo del otro.
+Base URL en desarrollo: `http://<IP-local-del-PC>:3000`, en `mobile/.env.local` como `EXPO_PUBLIC_API_URL` (no se sube a GitHub; tras cambiarla, `npx expo start -c`). **`localhost` no funciona desde el celular.** **No hay registro público** (se quitó el 8 nov 2026; los usuarios se crean con `npm run usuario`) y el login tiene límite de 10 intentos fallidos cada 15 min (`express-rate-limit` en `authRoutes.ts`). Todas las rutas, salvo el login, necesitan `Authorization: Bearer <token>`: el middleware `backend/src/middleware/auth.ts` lo verifica y deja el id en `res.locals.usuarioId`. **Los controladores siempre usan ese id**, nunca el `:usuarioId` de la URL (que se ignora) ni uno del body, y en rutas por id comprueban que el registro sea del usuario (si no, 404). Así Wilfer y Kevin nunca ven lo del otro.
 
 | Acción | Método y ruta |
 |---|---|
@@ -98,7 +98,7 @@ Guardado en `expo-secure-store` tras el login: `userToken`, `userName`, `userId`
 - Préstamos: lista con filtro Activos/Todos, badge de cuotas vencidas, detalle con cuotas y botón "Marcar pagada".
 - Deudores: lista con total prestado y detalle con sus préstamos, enlazado al detalle de préstamo.
 - `services/api.ts` creado: guarda `BASE_URL`, agrega el token y maneja el 401 (limpia sesión y manda a `/login`).
-- **Todas las pantallas usan `api()`** (home, préstamos, deudores y los dos detalles). `login.tsx` usa `fetch` directo pero toma `BASE_URL` de `api.ts`, así que la IP vive en un solo lugar.
+- **Todas las pantallas usan `api()`** (home, préstamos, deudores y los dos detalles). `login.tsx` usa `fetch` directo pero toma `BASE_URL` de `api.ts`, que la lee de `EXPO_PUBLIC_API_URL`.
 
 ## 7. Estado actual: subida a Expo SDK 58 (en curso)
 
@@ -107,13 +107,13 @@ El Expo Go del iPhone de Kevin se actualizó y **solo soporta SDK 58**, así que
 Hecho hasta ahora:
 1. `npx expo install expo@^58.0.0 --fix` subió `expo`, pero falló con `ERESOLVE` (conflicto entre `expo-router` y `expo-symbols`).
 2. Se resolvió con `npx expo install --fix -- --legacy-peer-deps`. Los 24 paquetes quedaron alineados con SDK 58.
-3. `BASE_URL` en `api.ts` ya apunta a `192.168.100.6` (la IP que mostró Metro).
+3. `BASE_URL` sale de `EXPO_PUBLIC_API_URL` en `mobile/.env.local` (hoy `http://192.168.100.6:3000`).
 
 **Siguiente paso inmediato:**
 1. Correr `npx expo-doctor@latest` y revisar lo que reporte.
 2. Arrancar con `npx expo start -c`, escanear el QR y confirmar que la app abre.
 3. Revisar si los encabezados de iOS en las pantallas de detalle cambiaron de aspecto.
-4. Si las listas no cargan, correr `ipconfig` y actualizar `BASE_URL` en `api.ts` (es el único lugar).
+4. Si las listas no cargan, correr `ipconfig` y actualizar `EXPO_PUBLIC_API_URL` en `mobile/.env.local` y reiniciar con `npx expo start -c`.
 
 No correr `npm audit fix --force`: puede romper el proyecto.
 
@@ -126,8 +126,8 @@ No correr `npm audit fix --force`: puede romper el proyecto.
 4. **Subir documentos (letras)** desde el detalle del préstamo, con `expo-document-picker` y `expo-image-picker`.
 5. **Lógica de negocio en el backend** (sección 5): ~~generación automática de cuotas~~ (hecho el 6 nov 2026); falta el cierre de préstamo al devolver el capital.
 6. **Ajustes** (pestaña `(tabs)/ajustes.tsx`): perfil (`cuenta/perfil.tsx`, `PUT /api/perfil`), cambiar contraseña (`cuenta/contrasena.tsx`, `PUT /api/perfil/password`, exige la actual y responde 400, no 401, si es incorrecta) y cerrar sesión (`cerrarSesion()` en `services/api.ts`). Los correos se guardan en minúsculas y el login los normaliza. **Pendiente: modo claro/oscuro**, que requiere pasar todas las pantallas de colores fijos a un tema.
-7. **Antes de producción:** cerrar o proteger `POST /api/auth/register`, que hoy es pública.
-8. **Llevar a producción:** Kevin está decidiendo con su papá si pagar o usar opciones gratis. Falta saber si el papá usa iPhone o Android. Plan: base de datos PostgreSQL en la nube, desplegar el backend en un servidor con URL fija (Railway, Render o Fly.io), cambiar `BASE_URL` en `api.ts`, y generar el build con `eas build` para que el papá instale la app sin Expo Go.
+7. ~~Antes de producción: cerrar `POST /api/auth/register`~~ (hecho el 8 nov 2026, junto con el límite de intentos de login y el borrado de los archivos sin usar de la plantilla de Expo).
+8. **Llevar a producción:** Kevin está decidiendo con su papá si pagar o usar opciones gratis. Falta saber si el papá usa iPhone o Android. Plan: base de datos PostgreSQL en la nube, desplegar el backend en un servidor con URL fija (Railway, Render o Fly.io), poner su URL en `EXPO_PUBLIC_API_URL` del build, y generar el build con `eas build` para que el papá instale la app sin Expo Go.
 
 ## 9. Lecciones y trampas ya vividas
 

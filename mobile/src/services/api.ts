@@ -1,7 +1,12 @@
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
 
-export const BASE_URL = "http://192.168.100.6:3000";
+// La dirección del backend sale de EXPO_PUBLIC_API_URL:
+// - En desarrollo, del archivo mobile/.env.local (la IP del PC, ej. http://192.168.100.6:3000)
+// - En la app de la beta, de la configuración del build (la URL del servidor en internet)
+// Si se cambia, reiniciar Expo con "npx expo start -c" para que la tome
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
+if (!BASE_URL) console.error("Falta EXPO_PUBLIC_API_URL: créala en mobile/.env.local");
 
 // BORRA LA SESION GUARDADA Y VUELVE AL LOGIN
 export async function cerrarSesion() {

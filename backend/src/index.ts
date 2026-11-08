@@ -11,6 +11,10 @@ import { verificarToken } from './middleware/auth'
 
 const app = express()
 
+// En el servidor de internet (Railway, Render...) las peticiones llegan a través de un intermediario;
+// esto hace que el límite de intentos de login vea la IP real de cada celular
+app.set('trust proxy', 1)
+
 app.use(cors())
 app.use(express.json())
 
@@ -18,7 +22,7 @@ app.get('/ping', (_req, res) => {
   res.send('pong')
 })
 
-// RUTAS PUBLICAS (login y registro van antes del token)
+// RUTA PUBLICA (el login va antes del token)
 app.use('/api/auth', authRoutes)
 
 // DE AQUI EN ADELANTE TODAS LAS RUTAS NECESITAN TOKEN
