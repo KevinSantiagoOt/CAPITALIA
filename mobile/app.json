@@ -1,23 +1,27 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "Capitalia",
+    "slug": "capitalia",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "mobile",
+    "scheme": "capitalia",
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.capitalia.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "output": "static",
@@ -43,13 +47,31 @@
         "expo-image-picker",
         {
           "photosPermission": "Capitalia necesita acceso a tus fotos para adjuntar las letras de los préstamos.",
-          "cameraPermission": "Capitalia necesita la cámara para tomar foto de las letras de los préstamos."
+          "cameraPermission": "Capitalia necesita la cámara para tomar foto de las letras de los préstamos.",
+          "microphonePermission": false
         }
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "485348f5-01c9-4731-8127-3f1d9e7ab532"
+      }
+    },
+    "owner": "kevinsantiago0",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/485348f5-01c9-4731-8127-3f1d9e7ab532"
     }
   }
 }
