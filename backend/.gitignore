@@ -3,3 +3,7 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Código compilado: Railway lo genera al desplegar
+/dist
+/build
