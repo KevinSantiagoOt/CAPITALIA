@@ -12,7 +12,7 @@ export const sumarMeses = (fecha: Date, meses: number) => {
 
 // CREA LAS CUOTAS QUE FALTEN DE UN PRESTAMO, UNA POR MES
 // - Con fecha fin: todas, hasta la fecha fin
-// - Sin fecha fin: las que ya pasaron más la próxima por vencer
+// - Sin fecha fin: las que ya pasaron más una próxima sin pagar (si se paga por adelantado, sale la siguiente)
 // Se pague o no la cuota anterior, cada mes que pasa debe tener su cuota
 const sincronizarPrestamo = async (prestamo: {
     id: string
@@ -41,11 +41,14 @@ const sincronizarPrestamo = async (prestamo: {
 
         if (prestamo.fechaFinPlazo) {
             if (fecha > prestamo.fechaFinPlazo) break
+        } else if (i === 1) {
+            // Sin fecha fin: se crean las vencidas y siempre queda una próxima SIN PAGAR.
+            // Si la última ya está pagada (pago anticipado), se crea la siguiente aunque no haya vencido.
+            // (Un préstamo sin cuotas no tiene "última": su primera cuota siempre se crea)
+            if (ultimaCuota && ultimaCuota.fechaVencimiento >= hoyUTC && !ultimaCuota.pagado) break
         } else {
-            // Sin fecha fin: si la cuota anterior ya es la próxima por vencer, no se crean más.
-            // (Un préstamo sin cuotas no tiene "anterior": su primera cuota siempre se crea)
-            const anterior = i === 1 ? (ultimaCuota ? base : null) : sumarMeses(base, i - 1)
-            if (anterior && anterior >= hoyUTC) break
+            // Las que se van creando aquí están sin pagar: basta con que la anterior aún no venza
+            if (sumarMeses(base, i - 1) >= hoyUTC) break
         }
 
         nuevas.push({ montoInteres, fechaVencimiento: fecha, prestamoId: prestamo.id })

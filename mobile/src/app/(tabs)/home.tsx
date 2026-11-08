@@ -13,7 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { api } from "@/services/api";
-import { estadoVencimiento, estadoPlazo } from "@/utils/fechas";
+import { estadoPlazo } from "@/utils/fechas";
 import { useTema } from "@/theme/tema";
 import { Colores } from "@/theme/colores";
 import { useBarraClara } from "@/theme/barra-estado";
@@ -63,7 +63,7 @@ export default function HomeScreen() {
   const [proximas, setProximas] = useState<CuotaProxima[]>([]);
   const [activos, setActivos] = useState<PrestamoActivo[]>([]);
   const [cobradoMes, setCobradoMes] = useState(0);
-  const [cuotasCobradas, setCuotasCobradas] = useState(0);
+  const [esperadoMes, setEsperadoMes] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -93,14 +93,14 @@ export default function HomeScreen() {
         api<CuotaVencida[]>(`/api/cuotas/prestamo/${userId}/vencidas`),
         api<CuotaProxima[]>(`/api/cuotas/prestamo/${userId}/vencenpronto`),
         api<PrestamoActivo[]>(`/api/prestamosactivos/usuario/${userId}`),
-        api<{ total: string; cuotas: number }>(`/api/cuotas/prestamo/${userId}/cobradasmes`),
+        api<{ total: string; esperado: string }>(`/api/cuotas/prestamo/${userId}/cobradasmes`),
       ]);
 
       setVencidas(dataVencidas);
       setProximas(dataProximas);
       setActivos(dataActivos);
       setCobradoMes(Number(dataCobrado.total));
-      setCuotasCobradas(dataCobrado.cuotas);
+      setEsperadoMes(Number(dataCobrado.esperado));
     } catch (error) {
       console.log("Error cargando dashboard:", error);
     } finally {
@@ -146,25 +146,39 @@ export default function HomeScreen() {
   const plural = (n: number, palabra: string) => `${n} ${palabra}${n !== 1 ? "s" : ""}`;
   const mes = obtenerMesActual().toLowerCase();
 
-  // Tarjeta de la cuadrícula: ícono en círculo de color, título, monto y detalle
+  // Tarjeta de la cuadrícula: ícono en círculo de color, título, monto y detalle.
+  // Con "progreso" (0 a 1) lleva además una barra, del color del ícono.
+  // Con "onPress" se puede tocar (lleva una flecha arriba a la derecha)
   const tarjeta = (
     icono: keyof typeof Ionicons.glyphMap,
     color: string,
     fondoIcono: string,
     titulo: string,
     valor: string,
-    detalle: string
+    detalle: string,
+    progreso?: number,
+    onPress?: () => void
   ) => (
-    <View style={styles.tarjeta}>
-      <View style={[styles.tarjetaIcono, { backgroundColor: fondoIcono }]}>
-        <Ionicons name={icono} size={20} color={color} />
+    <TouchableOpacity style={styles.tarjeta} onPress={onPress} disabled={!onPress}>
+      <View style={styles.tarjetaArriba}>
+        <View style={[styles.tarjetaIcono, { backgroundColor: fondoIcono }]}>
+          <Ionicons name={icono} size={20} color={color} />
+        </View>
+        {onPress && <Ionicons name="chevron-forward" size={18} color={colores.iconoTenue} />}
       </View>
       <Text style={styles.tarjetaTitulo}>{titulo}</Text>
       <Text style={styles.tarjetaValor} numberOfLines={1} adjustsFontSizeToFit>
         {valor}
       </Text>
-      <Text style={styles.tarjetaDetalle}>{detalle}</Text>
-    </View>
+      <Text style={styles.tarjetaDetalle} numberOfLines={1} adjustsFontSizeToFit>
+        {detalle}
+      </Text>
+      {progreso !== undefined && (
+        <View style={styles.barraFondo}>
+          <View style={[styles.barraRelleno, { width: `${Math.round(progreso * 100)}%`, backgroundColor: color }]} />
+        </View>
+      )}
+    </TouchableOpacity>
   );
 
   if (loading) {
@@ -201,17 +215,22 @@ export default function HomeScreen() {
 
           <View style={styles.cuadricula}>
             <View style={styles.fila}>
-              {tarjeta("cash-outline", colores.exito, colores.exitoSuave, `Cobrado en ${mes}`,
-                formatearMonto(cobradoMes), plural(cuotasCobradas, "cuota"))}
+              {/* Intereses del mes: de las cuotas que vencen este mes, cuánto ya se cobró */}
+              {tarjeta("cash-outline", colores.exito, colores.exitoSuave, `Intereses de ${mes}`,
+                formatearMonto(cobradoMes), `de ${formatearMonto(esperadoMes)}`,
+                esperadoMes > 0 ? Math.min(1, cobradoMes / esperadoMes) : 0)}
               {tarjeta("wallet-outline", colores.primario, colores.primarioSuave, "Préstamos activos",
                 String(activos.length),
                 plazosVencidos.length > 0 ? `${plazosVencidos.length} con plazo vencido` : "Sin plazos vencidos")}
             </View>
             <View style={styles.fila}>
+              {/* Al tocarlas se abre la lista de esas cuotas */}
               {tarjeta("alert-circle-outline", colores.peligro, colores.peligroSuave, "Vencidas",
-                formatearMonto(totalVencidas), plural(vencidas.length, "cuota"))}
+                formatearMonto(totalVencidas), plural(vencidas.length, "cuota"), undefined,
+                () => router.push({ pathname: "/cuotas/[tipo]", params: { tipo: "vencidas" } }))}
               {tarjeta("time-outline", colores.aviso, colores.avisoSuave, "Por cobrar",
-                formatearMonto(totalProximas), `${plural(proximas.length, "cuota")} en ${mes}`)}
+                formatearMonto(totalProximas), `${plural(proximas.length, "cuota")} en ${mes}`, undefined,
+                () => router.push({ pathname: "/cuotas/[tipo]", params: { tipo: "por-cobrar" } }))}
             </View>
           </View>
 
@@ -238,56 +257,6 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </>
-        )}
-
-        {/* Cuotas vencidas */}
-        <Text style={styles.seccionTitulo}>Cuotas vencidas</Text>
-        {vencidas.length === 0 ? (
-          <Text style={styles.vacio}>No hay cuotas vencidas</Text>
-        ) : (
-          vencidas.map((cuota) => (
-            <TouchableOpacity
-              key={cuota.id}
-              style={[styles.cuotaCard, styles.bordeRojo]}
-              onPress={() => router.push(`/prestamo/${cuota.prestamoId}`)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cuotaNombre}>
-                  {cuota.prestamo?.deudor?.nombre ?? "Deudor"}
-                </Text>
-                <Text style={styles.cuotaFecha}>
-                  Venció: {formatearFecha(cuota.fechaVencimiento)}
-                </Text>
-              </View>
-              <Text style={styles.cuotaMonto}>{formatearMonto(cuota.montoInteres)}</Text>
-            </TouchableOpacity>
-          ))
-        )}
-
-        {/* Cuotas que vencen este mes */}
-        <Text style={styles.seccionTitulo}>Vencen este mes</Text>
-        {proximas.length === 0 ? (
-          <Text style={styles.vacio}>Nada próximo a vencer</Text>
-        ) : (
-          proximas.map((cuota) => (
-            <TouchableOpacity
-              key={cuota.id}
-              style={[styles.cuotaCard, styles.bordeAmarillo]}
-              onPress={() => router.push(`/prestamo/${cuota.prestamoId}`)}
-            >
-              <View style={{ flex: 1 }}>
-                <Text style={styles.cuotaNombre}>
-                  {cuota.prestamo?.deudor?.nombre ?? "Deudor"}
-                </Text>
-                {estadoVencimiento(cuota.fechaVencimiento) === "hoy" ? (
-                  <Text style={[styles.cuotaFecha, styles.textoHoy]}>Vence hoy</Text>
-                ) : (
-                  <Text style={styles.cuotaFecha}>Vence: {formatearFecha(cuota.fechaVencimiento)}</Text>
-                )}
-              </View>
-              <Text style={styles.cuotaMonto}>{formatearMonto(cuota.montoInteres)}</Text>
-            </TouchableOpacity>
-          ))
         )}
         </View>
       </ScrollView>
@@ -330,13 +299,15 @@ const crearEstilos = (c: Colores) =>
       borderColor: c.separador,
       padding: 14,
     },
+    tarjetaArriba: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
     tarjetaIcono: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center" },
     tarjetaTitulo: { fontSize: 13, color: c.textoSecundario, marginTop: 12 },
     tarjetaValor: { fontSize: 19, fontWeight: "bold", fontVariant: numerosMontos, color: c.texto, marginTop: 4 },
     tarjetaDetalle: { fontSize: 12, color: c.textoTenue, marginTop: 4 },
+    barraFondo: { height: 6, borderRadius: 3, backgroundColor: c.neutroSuave, marginTop: 8, overflow: "hidden" },
+    barraRelleno: { height: 6, borderRadius: 3 },
 
     seccionTitulo: { fontSize: 16, fontWeight: "bold", marginTop: 8, marginBottom: 8, color: c.texto },
-    vacio: { color: c.textoTenue, marginBottom: 16 },
     cuotaCard: {
       flexDirection: "row",
       alignItems: "center",
@@ -349,9 +320,7 @@ const crearEstilos = (c: Colores) =>
       borderLeftWidth: 4,
     },
     bordeRojo: { borderLeftColor: c.peligro },
-    bordeAmarillo: { borderLeftColor: c.aviso },
     cuotaNombre: { fontWeight: "600", fontSize: 15, color: c.texto },
     cuotaFecha: { fontSize: 13, color: c.textoSecundario, marginTop: 2 },
-    textoHoy: { color: c.aviso, fontWeight: "600" },
     cuotaMonto: { fontWeight: "bold", fontSize: 15, fontVariant: numerosMontos, color: c.primario },
   });

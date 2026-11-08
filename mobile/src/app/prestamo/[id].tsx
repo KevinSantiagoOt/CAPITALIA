@@ -16,8 +16,9 @@ import { useTema } from "@/theme/tema";
 import { Colores } from "@/theme/colores";
 import { useBarraClara } from "@/theme/barra-estado";
 import { numerosMontos } from "@/theme/fuentes";
-import { estadoVencimiento, estadoPlazo, diasHasta } from "@/utils/fechas";
+import { estadoVencimiento, estadoPlazo, diasHasta, aTextoFecha } from "@/utils/fechas";
 import Letras, { Documento } from "@/components/letras";
+import FechaPago from "@/components/fecha-pago";
 
 type Cuota = {
   id: string;
@@ -51,6 +52,8 @@ export default function DetallePrestamoScreen() {
   const [prestamo, setPrestamo] = useState<PrestamoDetalle | null>(null);
   const [loading, setLoading] = useState(true);
   const [actualizandoCuota, setActualizandoCuota] = useState<string | null>(null);
+  // Cuota a la que se le está eligiendo "Otra fecha" de pago (abre el calendario)
+  const [cuotaOtraFecha, setCuotaOtraFecha] = useState<Cuota | null>(null);
 
   const cargarPrestamo = useCallback(async () => {
     try {
@@ -71,17 +74,33 @@ export default function DetallePrestamoScreen() {
     }, [cargarPrestamo])
   );
 
-  // Marca o desmarca una cuota. El backend pone (o borra) la fecha de pago
-  const cambiarPago = async (cuotaId: string, pagado: boolean) => {
+  // Marca o desmarca una cuota. Al marcarla se envía el día en que pagó ("AAAA-MM-DD");
+  // al desmarcarla el backend borra la fecha de pago
+  const cambiarPago = async (cuotaId: string, pagado: boolean, fechaPago?: Date) => {
     setActualizandoCuota(cuotaId);
     try {
-      await api(`/api/cuotas/${cuotaId}`, { method: "PUT", body: { pagado } });
+      const body = pagado ? { pagado, fechaPago: aTextoFecha(fechaPago ?? new Date()) } : { pagado };
+      await api(`/api/cuotas/${cuotaId}`, { method: "PUT", body });
       await cargarPrestamo();
     } catch (error) {
       Alert.alert("Error", pagado ? "No se pudo marcar la cuota como pagada" : "No se pudo desmarcar la cuota");
     } finally {
       setActualizandoCuota(null);
     }
+  };
+
+  // MARCAR PAGADA: pregunta el día del pago, porque Wilfer puede anotarlo días después
+  // (o registrar un préstamo viejo con cuotas que ya cobró)
+  const marcar = (cuota: Cuota) => {
+    Alert.alert(
+      "¿Cuándo pagó?",
+      `Cuota de ${formatearMonto(cuota.montoInteres)} del ${formatearFecha(cuota.fechaVencimiento)}`,
+      [
+        { text: "Hoy", onPress: () => cambiarPago(cuota.id, true) },
+        { text: "Otra fecha", onPress: () => setCuotaOtraFecha(cuota) },
+        { text: "Cancelar", style: "cancel" },
+      ]
+    );
   };
 
   // Para corregir un "Marcar pagada" tocado por error
@@ -402,13 +421,23 @@ export default function DetallePrestamoScreen() {
 
               <View style={{ flex: 1 }}>
                 <Text style={styles.cuotaMonto}>{formatearMonto(item.montoInteres)}</Text>
-                <Text style={[styles.cuotaFecha, vencida && styles.textoVencido, venceHoy && styles.textoHoy]}>
-                  {item.pagado && item.fechaPago
-                    ? `Pagada el ${formatearFecha(item.fechaPago)}`
-                    : venceHoy
+                {item.pagado ? (
+                  // Pagada: a qué mes corresponde y cuándo se pagó (puede ser antes, si pagó por adelantado)
+                  <>
+                    <Text style={styles.cuotaFecha}>Vencía el {formatearFecha(item.fechaVencimiento)}</Text>
+                    {item.fechaPago && (
+                      <Text style={[styles.cuotaFecha, styles.textoPagada]}>
+                        Pagada el {formatearFecha(item.fechaPago)}
+                      </Text>
+                    )}
+                  </>
+                ) : (
+                  <Text style={[styles.cuotaFecha, vencida && styles.textoVencido, venceHoy && styles.textoHoy]}>
+                    {venceHoy
                       ? "Vence hoy"
                       : `${vencida ? "Venció" : "Vence"} el ${formatearFecha(item.fechaVencimiento)}`}
-                </Text>
+                  </Text>
+                )}
               </View>
 
               {/* A la derecha: "Marcar" si falta pagarla, "Pagada" si ya se pagó (se toca para desmarcar) */}
@@ -419,7 +448,7 @@ export default function DetallePrestamoScreen() {
                   <Text style={styles.accionPagada}>Pagada</Text>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity onPress={() => cambiarPago(item.id, true)} hitSlop={10}>
+                <TouchableOpacity onPress={() => marcar(item)} hitSlop={10}>
                   <Text style={styles.accionMarcar}>Marcar</Text>
                 </TouchableOpacity>
               )}
@@ -427,6 +456,17 @@ export default function DetallePrestamoScreen() {
           );
         })}
       </ScrollView>
+
+      {/* Calendario para "Otra fecha" al marcar una cuota como pagada */}
+      <FechaPago
+        visible={cuotaOtraFecha !== null}
+        onCancelar={() => setCuotaOtraFecha(null)}
+        onConfirmar={(fecha) => {
+          const cuota = cuotaOtraFecha;
+          setCuotaOtraFecha(null);
+          if (cuota) cambiarPago(cuota.id, true, fecha);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -535,6 +575,7 @@ const crearEstilos = (c: Colores) => StyleSheet.create({
   cuotaFecha: { fontSize: 13, color: c.textoSecundario, marginTop: 2 },
   textoVencido: { color: c.peligro, fontWeight: "600" },
   textoHoy: { color: c.aviso, fontWeight: "600" },
+  textoPagada: { color: c.exito },
   accionMarcar: { fontSize: 15, fontWeight: "bold", color: c.primario },
   accionPagada: { fontSize: 15, fontWeight: "600", color: c.exito },
 });

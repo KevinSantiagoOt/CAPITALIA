@@ -2,13 +2,15 @@
 // Para compararlas se usa el texto "AAAA-MM-DD"; comparar con new Date() haría que una cuota
 // de hoy apareciera vencida desde la medianoche.
 
-// Fecha de hoy en el celular, como "AAAA-MM-DD"
-export const hoyTexto = () => {
-  const hoy = new Date();
-  const mes = String(hoy.getMonth() + 1).padStart(2, "0");
-  const dia = String(hoy.getDate()).padStart(2, "0");
-  return `${hoy.getFullYear()}-${mes}-${dia}`;
+// Un día del celular (hora de Colombia) como "AAAA-MM-DD", el formato que espera el backend
+export const aTextoFecha = (fecha: Date) => {
+  const mes = String(fecha.getMonth() + 1).padStart(2, "0");
+  const dia = String(fecha.getDate()).padStart(2, "0");
+  return `${fecha.getFullYear()}-${mes}-${dia}`;
 };
+
+// Fecha de hoy en el celular, como "AAAA-MM-DD"
+export const hoyTexto = () => aTextoFecha(new Date());
 
 // Días que faltan para una fecha (negativo si ya pasó, 0 si es hoy)
 export const diasHasta = (fecha: string) => {

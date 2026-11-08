@@ -65,7 +65,7 @@ function CampoFecha({ valor, onCambio, minima }: { valor: Date; onCambio: (d: Da
         themeVariant={esOscuro ? "dark" : "light"}
         locale="es-CO"
         minimumDate={minima}
-        onChange={(_, fecha) => fecha && onCambio(fecha)}
+        onValueChange={(_, fecha) => onCambio(fecha)}
         style={{ alignSelf: "flex-start" }}
       />
     );
@@ -82,10 +82,11 @@ function CampoFecha({ valor, onCambio, minima }: { valor: Date; onCambio: (d: Da
           mode="date"
           themeVariant={esOscuro ? "dark" : "light"}
           minimumDate={minima}
-          onChange={(_, fecha) => {
+          onValueChange={(_, fecha) => {
             setAbierto(false);
-            if (fecha) onCambio(fecha);
+            onCambio(fecha);
           }}
+          onDismiss={() => setAbierto(false)}
         />
       )}
     </>

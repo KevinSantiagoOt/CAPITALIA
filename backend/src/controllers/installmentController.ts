@@ -52,8 +52,15 @@ export const updateInstallment = async (req: Request, res: Response) => {
             return res.status(404).json({ message: "No se encontro la cuota" })
         }
 
+        // La app envía el día del pago como "AAAA-MM-DD" (puede ser anterior a hoy si lo anotó después).
         // Si se marca como pagada sin fecha, se toma la de hoy; si se desmarca, se borra
         let fechaPagoFinal = fechaPago
+        if (typeof fechaPago === "string") {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaPago)) {
+                return res.status(400).json({ message: "La fecha de pago no es válida" })
+            }
+            fechaPagoFinal = new Date(`${fechaPago}T00:00:00Z`) // Prisma necesita un Date, no el texto
+        }
         if (fechaPago === undefined && pagado === true) fechaPagoFinal = new Date()
         if (fechaPago === undefined && pagado === false) fechaPagoFinal = null
 
@@ -61,6 +68,20 @@ export const updateInstallment = async (req: Request, res: Response) => {
             where: { id: idStrg },
             data: { pagado, fechaPago: fechaPagoFinal }
         })
+
+        // Desmarcar un pago anticipado en un préstamo sin fecha fin: la cuota siguiente se había
+        // creado por ese pago, así que sobra. Se borran las sin pagar posteriores a esta cuota
+        // (solo si esta no ha vencido; si ya venció, las siguientes son meses reales)
+        if (pagado === false) {
+            const hoy = new Date()
+            const hoyUTC = new Date(Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()))
+            const prestamo = await prisma.prestamo.findUnique({ where: { id: existe.prestamoId } })
+            if (prestamo && !prestamo.fechaFinPlazo && existe.fechaVencimiento >= hoyUTC) {
+                await prisma.cuota.deleteMany({
+                    where: { prestamoId: existe.prestamoId, pagado: false, fechaVencimiento: { gt: existe.fechaVencimiento } }
+                })
+            }
+        }
 
         // Si ya devolvió el capital, al pagar la última cuota pendiente el préstamo se cierra solo
         await actualizarEstadoPorCuotas(updatedInstallment.prestamoId)
@@ -156,8 +177,8 @@ export const getInstallmentsDueThisMonth = async (req: Request, res: Response) =
     }
 }
 
-// COBRADO ESTE MES: cuotas pagadas cuya fecha de pago cae en el mes actual
-// (incluye préstamos que ya se cerraron este mes)
+// INTERESES DEL MES: de las cuotas que vencen este mes, cuánto se esperaba y cuánto ya se cobró
+// (incluye préstamos que ya se cerraron)
 export const getCollectedThisMonth = async (req: Request, res: Response) => {
     try {
         const usuarioId = res.locals.usuarioId as string // el :usuarioId de la URL se ignora
@@ -165,16 +186,21 @@ export const getCollectedThisMonth = async (req: Request, res: Response) => {
         const inicioMes = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth(), 1))
         const inicioMesSiguiente = new Date(Date.UTC(ahora.getFullYear(), ahora.getMonth() + 1, 1))
 
-        const resultado = await prisma.cuota.aggregate({
-            where: {
-                prestamo: { usuarioId },
-                pagado: true,
-                fechaPago: { gte: inicioMes, lt: inicioMesSiguiente }
-            },
-            _sum: { montoInteres: true },
-            _count: true
+        // Solo las cuotas que VENCEN este mes, sin importar cuándo se marcaron: así un préstamo viejo
+        // registrado hoy no suma como cobrado en este mes lo que se cobró en meses anteriores
+        await syncInstallments(usuarioId)
+        const delMes = { prestamo: { usuarioId }, fechaVencimiento: { gte: inicioMes, lt: inicioMesSiguiente } }
+
+        const [esperado, cobrado] = await Promise.all([
+            prisma.cuota.aggregate({ where: delMes, _sum: { montoInteres: true }, _count: true }),
+            prisma.cuota.aggregate({ where: { ...delMes, pagado: true }, _sum: { montoInteres: true }, _count: true }),
+        ])
+        res.json({
+            total: cobrado._sum.montoInteres ?? 0, // cobrado de las cuotas del mes
+            cuotas: cobrado._count,
+            esperado: esperado._sum.montoInteres ?? 0, // lo que suman todas las cuotas del mes
+            totalCuotas: esperado._count,
         })
-        res.json({ total: resultado._sum.montoInteres ?? 0, cuotas: resultado._count })
     } catch (error) {
         res.status(500).json({ error: String(error) })
     }
