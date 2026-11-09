@@ -2,18 +2,15 @@
   "expo": {
     "name": "Capitalia",
     "slug": "capitalia",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "capitalia",
     "userInterfaceStyle": "automatic",
-    "ios": {
-      "icon": "./assets/expo.icon"
-    },
     "android": {
       "package": "com.capitalia.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#111111",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -32,9 +29,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
+          "backgroundColor": "#111111",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 160
         }
       ],
       "expo-secure-store",
@@ -49,6 +46,13 @@
           "photosPermission": "Capitalia necesita acceso a tus fotos para adjuntar las letras de los préstamos.",
           "cameraPermission": "Capitalia necesita la cámara para tomar foto de las letras de los préstamos.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#3b82f6"
         }
       ]
     ],

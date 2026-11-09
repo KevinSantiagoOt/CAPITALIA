@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Switch, Linking } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -8,6 +8,7 @@ import { useTema, Preferencia } from "@/theme/tema";
 import { Colores } from "@/theme/colores";
 import { useBarraClara } from "@/theme/barra-estado";
 import { iniciales } from "@/utils/texto";
+import { recordatoriosFuncionando, cambiarNotificaciones } from "@/services/notificaciones";
 
 type Perfil = { id: string; nombre: string; email: string };
 
@@ -21,6 +22,7 @@ export default function AjustesScreen() {
   const { colores, preferencia, cambiarPreferencia } = useTema();
   const styles = useMemo(() => crearEstilos(colores), [colores]);
   const [perfil, setPerfil] = useState<Perfil | null>(null);
+  const [recordatorios, setRecordatorios] = useState(false);
   useBarraClara();
 
   // Recarga al volver (ej. después de editar el perfil)
@@ -29,8 +31,27 @@ export default function AjustesScreen() {
       api<Perfil>("/api/perfil")
         .then(setPerfil)
         .catch((error) => console.log("Error cargando perfil:", error));
+      // El permiso se puede quitar desde los ajustes del celular: se revisa cada vez
+      recordatoriosFuncionando().then(setRecordatorios);
     }, [])
   );
+
+  const cambiarRecordatorios = async (activar: boolean) => {
+    setRecordatorios(activar);
+    const funcionando = await cambiarNotificaciones(activar);
+    setRecordatorios(funcionando);
+    // Si el celular tiene bloqueadas las notificaciones de la app, solo se pueden activar desde sus ajustes
+    if (activar && !funcionando) {
+      Alert.alert(
+        "Notificaciones bloqueadas",
+        "Para recibir los recordatorios, permite las notificaciones de Capitalia en los ajustes del celular.",
+        [
+          { text: "Ahora no", style: "cancel" },
+          { text: "Abrir ajustes", onPress: () => Linking.openSettings() },
+        ]
+      );
+    }
+  };
 
   const confirmarCierre = () => {
     Alert.alert("Cerrar sesión", "¿Seguro que quieres cerrar sesión?", [
@@ -94,6 +115,23 @@ export default function AjustesScreen() {
           </View>
         </View>
         <Text style={styles.ayuda}>Automático usa el mismo modo que tu celular.</Text>
+
+        {/* NOTIFICACIONES: recordatorios de cuotas y plazos a las 8 a. m. */}
+        <View style={styles.grupo}>
+          <View style={styles.fila}>
+            <Ionicons name="notifications" size={18} color={colores.texto} style={styles.filaIcono} />
+            <Text style={styles.filaTexto}>Recordatorios</Text>
+            <Switch
+              value={recordatorios}
+              onValueChange={cambiarRecordatorios}
+              trackColor={{ false: colores.iconoTenue, true: colores.primario }}
+              ios_backgroundColor={colores.iconoTenue}
+            />
+          </View>
+        </View>
+        <Text style={styles.ayuda}>
+          Avisos a las 8 a. m. el día antes y el día que vence una cuota, y cuando termina un plazo.
+        </Text>
 
         {/* SEGURIDAD */}
         <Text style={styles.seccion}>Seguridad</Text>

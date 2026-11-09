@@ -19,6 +19,7 @@ import { numerosMontos } from "@/theme/fuentes";
 import { estadoVencimiento, estadoPlazo, diasHasta, aTextoFecha } from "@/utils/fechas";
 import Letras, { Documento } from "@/components/letras";
 import FechaPago from "@/components/fecha-pago";
+import { reprogramarRecordatorios } from "@/services/notificaciones";
 
 type Cuota = {
   id: string;
@@ -82,6 +83,7 @@ export default function DetallePrestamoScreen() {
       const body = pagado ? { pagado, fechaPago: aTextoFecha(fechaPago ?? new Date()) } : { pagado };
       await api(`/api/cuotas/${cuotaId}`, { method: "PUT", body });
       await cargarPrestamo();
+      reprogramarRecordatorios(); // lo pagado deja de avisar
     } catch (error) {
       Alert.alert("Error", pagado ? "No se pudo marcar la cuota como pagada" : "No se pudo desmarcar la cuota");
     } finally {
@@ -151,6 +153,7 @@ export default function DetallePrestamoScreen() {
           );
         }
         await cargarPrestamo();
+        reprogramarRecordatorios();
       } catch (error) {
         Alert.alert("Error", error instanceof Error ? error.message : "No se pudo cerrar el préstamo");
       }
@@ -190,6 +193,7 @@ export default function DetallePrestamoScreen() {
         await api(`/api/prestamos/${prestamo.id}/extender`, { method: "POST", body });
         Alert.alert("Plazo extendido");
         await cargarPrestamo();
+        reprogramarRecordatorios();
       } catch (error) {
         Alert.alert("Error", error instanceof Error ? error.message : "No se pudo extender el plazo");
       }
@@ -225,6 +229,7 @@ export default function DetallePrestamoScreen() {
           onPress: async () => {
             try {
               await api(`/api/prestamos/${prestamo.id}`, { method: "DELETE" });
+              reprogramarRecordatorios();
               Alert.alert("Préstamo eliminado", "El préstamo y sus cuotas fueron eliminados.", [
                 { text: "OK", onPress: () => router.back() },
               ]);

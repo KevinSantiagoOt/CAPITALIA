@@ -18,6 +18,7 @@ import { useTema } from "@/theme/tema";
 import { Colores } from "@/theme/colores";
 import { useBarraClara } from "@/theme/barra-estado";
 import { numerosMontos } from "@/theme/fuentes";
+import { reprogramarRecordatorios, pedirPermiso, notificacionesActivadas } from "@/services/notificaciones";
 
 type CuotaVencida = {
   id: string;
@@ -101,6 +102,14 @@ export default function HomeScreen() {
       setActivos(dataActivos);
       setCobradoMes(Number(dataCobrado.total));
       setEsperadoMes(Number(dataCobrado.esperado));
+
+      // Recordatorios de cuotas y plazos: la primera vez pide el permiso; luego los reprograma
+      // con los préstamos que ya se cargaron (sin otra petición). No se espera: el aviso del
+      // permiso no debe frenar la pantalla
+      (async () => {
+        if (await notificacionesActivadas()) await pedirPermiso();
+        await reprogramarRecordatorios(dataActivos);
+      })();
     } catch (error) {
       console.log("Error cargando dashboard:", error);
     } finally {

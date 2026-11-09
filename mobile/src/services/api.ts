@@ -1,5 +1,6 @@
 import * as SecureStore from "expo-secure-store";
 import { router } from "expo-router";
+import * as Notifications from "expo-notifications";
 
 // La dirección del backend sale de EXPO_PUBLIC_API_URL:
 // - En desarrollo, del archivo mobile/.env.local (la IP del PC, ej. http://192.168.100.6:3000)
@@ -9,7 +10,9 @@ export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? "";
 if (!BASE_URL) console.error("Falta EXPO_PUBLIC_API_URL: créala en mobile/.env.local");
 
 // BORRA LA SESION GUARDADA Y VUELVE AL LOGIN
+// También borra los recordatorios programados: no deben sonar con datos de otra sesión
 export async function cerrarSesion() {
+  await Notifications.cancelAllScheduledNotificationsAsync();
   await SecureStore.deleteItemAsync("userToken");
   await SecureStore.deleteItemAsync("userName");
   await SecureStore.deleteItemAsync("userId");
