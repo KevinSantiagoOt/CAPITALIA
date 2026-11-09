@@ -1,5 +1,4 @@
 Capitalia 
-Proyecto en fase de desarrollo activo.
 
 ## Tecnologías Utilizadas
 
