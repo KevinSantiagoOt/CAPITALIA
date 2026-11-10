@@ -18,9 +18,9 @@ export const createDebtor = async (req: Request, res: Response) => {
     })
     res.status(201).json({message: "Deudor creado", id: newDebtor.id, cedula: newDebtor.cedula})
     }catch(error){
-        // P2002: se violó un campo único, en este caso la cédula
+        // P2002: se violó un campo único, en este caso la cédula (única por prestamista)
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-            return res.status(409).json({ message: "Ya existe un deudor con esa cédula" })
+            return res.status(409).json({ message: "Ya tienes un deudor con esa cédula" })
         }
         res.status(500).json({error: "Error en el servidor"})
     }
@@ -75,7 +75,7 @@ export const updateDebtor = async (req: Request, res: Response) => {
         res.json(updatedDebtor)
     } catch(error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-            return res.status(409).json({ message: "Ya existe un deudor con esa cédula" })
+            return res.status(409).json({ message: "Ya tienes un deudor con esa cédula" })
         }
         res.status(500).json({ error: "Error en el servidor" })
     }
